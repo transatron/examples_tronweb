@@ -12,7 +12,7 @@
     - alternating 'expiration' parameter for sending "Delayed" transactions for bulk processing in future. 
 
 ## Usage
-Before you start, please contact [t.me/TransaTronSupport] to obtain API keys. Then, copy-and-paste `.env.example` into `.env` and fill in. 
+Before you start, please contact [TransaTronSupport](https://t.me/TransaTronSupport) to obtain API keys. Then, copy-and-paste `.env.example` into `.env` and fill in. 
 
 Then, run `yarn init` to initialize and install dependencies
 
