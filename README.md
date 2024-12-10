@@ -1,9 +1,15 @@
 # Transatron Integration examples with TronWeb
 
 ## Rerefence
-- `accountDeposits.js` - Handles USDT/TRX deposits and Transatron account management
-- `sendingBulkOrders.js` - Manages bulk transaction orders and processing
-- `sendingTransactions.js` - Handles individual transaction processing and broadcasting
+- `accountDeposits.js` - Basics of Transatron account management:
+    - creating and sending top-up transactions with TRX and USDT
+    - reading RTRX and RUSDT balances
+- `sendingBulkOrders.js` - Creating a bunch of transactions and sending all of them at once within one bulk order.
+- `sendingTransactions.js` - Handles individual transaction processing and broadcasting in the following modes:
+    - transaction fee paid from internal account
+    - transaction fee paid with instant TRX or USDT payments
+    - transaction fee paid with Coupon 
+    - alternating 'expiration' parameter for sending "Delayed" transactions for bulk processing in future. 
 
 ## Usage
 Before you start, please contact [t.me/TransaTronSupport] to obtain API keys. Then, copy-and-paste `.env.example` into `.env` and fill in. 
