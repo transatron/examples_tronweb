@@ -138,7 +138,7 @@ function format(numberUSDTorTRX){
 
         const numberOfTransactions = 10;
         let transactions = []; 
-        let transferAmount = 120000;//... +i*0.0001 USDT so that transaction have different amount, just for testing. feel free to change. 
+        let transferAmount = 12000;//... +i*0.0001 USDT so that transaction have different amount, just for testing. feel free to change. 
         
         for(var i=0;i<numberOfTransactions; i++)
         {

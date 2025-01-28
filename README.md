@@ -10,6 +10,7 @@
     - transaction fee paid with instant TRX or USDT payments
     - transaction fee paid with Coupon 
     - alternating 'expiration' parameter for sending "Delayed" transactions for bulk processing in future. 
+- [sendAndConsolidate.js](./src/sendAndConsolidate.js) - Creating a deposit address and triggering funds movement to pre-defined consolidation or refund address.
 
 ## Usage
 Before you start, please contact [TransaTronSupport](https://t.me/TransaTronSupport) to obtain API keys. Then, copy-and-paste `.env.example` into `.env` and fill in. 

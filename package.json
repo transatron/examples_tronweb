@@ -10,5 +10,16 @@
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.7",
     "tronweb": "5.3.0"
+  },
+  "scripts": {
+    "consolidate:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendAndConsolidate.js",
+    "consolidate:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendAndConsolidate.js",
+    "sendtx:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendingTransactions.js",
+    "sendtx:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendingTransactions.js",
+    "account:dev": "cross-env NODE_ENV=development node -r dotenv/config src/accountDeposits.js",
+    "account:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/accountDeposits.js",
+    "bulkorder:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendingBulkOrders.js",
+    "bulkorder:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendingBulkOrders.js"
   }
+
 }
