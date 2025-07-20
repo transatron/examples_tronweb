@@ -15,6 +15,6 @@
 ## Usage
 Before you start, please contact [TransaTronSupport](https://t.me/TransaTronSupport) to obtain API keys. Then, copy-and-paste `.env.example` into `.env` and fill in. 
 
-Then, run `yarn init` to initialize and install dependencies
+Then, run `yarn init` or `npm i` to initialize and install dependencies
 
-Run example file with `node src/<filename>.js`
+Run example file with `npm run sendtx:dev`

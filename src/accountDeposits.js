@@ -27,7 +27,7 @@ const tronWeb = new TronWeb({
         //***************************CHECK THIS SETTINGS HERE *******************/
         //set to true for a company (Entity) account with separate deposit/accounting address.
         //leave value as false for individual (sender address) account
-        const areYouACompany = false;
+        const areYouACompany = true;
         //***************************CHECK THIS SETTINGS HERE *******************/
 
         const senderAddress = tronWeb.defaultAddress.base58;
@@ -158,7 +158,7 @@ const tronWeb = new TronWeb({
               
 
 
-        if (true) {
+        if (false) {
             console.log("************* Deposit Transatron account with USDT *****************");
             const depositAddress = areYouACompany?accountingAddress:transatronDepositAddress;
             let transferAmount = transatronMinUSDTDeposit; 

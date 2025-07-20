@@ -1,6 +1,7 @@
 var fs = require('fs');
 const dotenv = require('dotenv');
 const TronWeb = require('tronweb');
+const internal = require('stream');
 
 // Load the appropriate .env file based on NODE_ENV
 const env = process.env.NODE_ENV || 'development';
@@ -47,7 +48,7 @@ function format(numberUSDTorTRX){
         const accountingAddress = areYouACompany?process.env.COMPANY_ACCOUNTING_ADDRESS:tronWeb.defaultAddress.base58;
         //***************************CHECK THIS SETTINGS HERE *******************/
 
-        const targetAddress = process.env.RECEIVER_WALLET_ADDRESS; 
+        let targetAddress = process.env.RECEIVER_WALLET_ADDRESS; 
         const senderAddress = tronWeb.defaultAddress.base58;
         console.log("******************************* SENDER WALLET ****************************");
         console.log("senderAddress = ",senderAddress);
@@ -146,7 +147,7 @@ function format(numberUSDTorTRX){
         if (false) {
             console.log("************* Sending TRX transactions *****************");
             // Amount should be in SUN (1 TRX = 1,000,000 SUN)
-            const amountInSun = 1000000; // 1 TRX
+            const amountInSun = 14000000; // 1 TRX
 
             // Create the unsigned transaction
             const unsignedTransaction = await tronWeb.transactionBuilder.sendTrx(
@@ -161,10 +162,22 @@ function format(numberUSDTorTRX){
             // Broadcast the signed transaction
             await broadcastTransaction(tronWeb, signedTransaction);
         }
+        // return;
 
-        if (true) {
-            console.log("************* Sending TRC20 Transaction *****************");
-            let transferAmount = 10000; //0.01 USDT 
+        const numberOfUSDTTransactions = 1;
+        const transactionInterval = 1000;//ms
+
+        for(let i=0;i<numberOfUSDTTransactions;i++){
+            console.log("************* Sending TRC20 Transaction ",(i+1)," *****************");
+            if(process.env.RECEIVER_WALLETS !=null && numberOfUSDTTransactions >1 ){
+                const array = JSON.parse(process.env.RECEIVER_WALLETS);
+                let index = i%array.length;
+                console.log("index ",index);
+                targetAddress = array[index];
+                console.log("targetAddress = ",targetAddress);
+            }
+
+            let transferAmount = Math.floor(Math.random() * (15000 - 5000 + 1)) + 5000; // Random amount between 5000 and 15000
             let _ownerHexAddress = tronWeb.address.toHex(senderAddress);
             let _USDTContractHexAddress = tronWeb.address.toHex(USDTContractAddress);
             let _TRC20ContractHexAddress = tronWeb.address.toHex(TRC20ContractAddress);
@@ -318,7 +331,7 @@ function format(numberUSDTorTRX){
                     } else {
                         console.log("seems address has enough resources, don't need to make instant payment!");
                     }
-                } else if (false) {
+                } else if (true) {
                     console.log("************* 3.c) INSTANT TRX PAYMENT *****************");
                     if(tx_fee_rtrx_instant > 0){
                         // Create the unsigned transaction
@@ -354,7 +367,23 @@ function format(numberUSDTorTRX){
                     // console.log("udpated transaction = ", unsignedUserTransaction);
                     //re-sign and override transaction object
                     signedUserTransaction = await tronWeb.trx.sign(unsignedUserTransaction, privateKey, false, false);
-                }  else if (false){
+                    const pendingInfo = await tronWebSpender['fullNode'].request(
+                        "api/v1/pendingtxs",
+                        "",
+                        'get'
+                    );
+
+                    console.log('Pending transactions data:',pendingInfo)
+                    if(true){
+                        const pendingInfoFlush = await tronWebSpender['fullNode'].request(
+                            "api/v1/pendingtxs/flush",
+                            "{}",
+                            'post'
+                        );
+    
+                        console.log('Pending transactions flush data:',pendingInfoFlush)
+                    }
+                }  else if (true){
                     console.log("************* 3.e) PAYING FOR TRANSACTION WITH COUPON *****************");
                     console.log("******************* CREATE COUPON **************************");
                     
@@ -408,7 +437,21 @@ function format(numberUSDTorTRX){
                 }
 
                 // console.log("signed transaction = ", signedTransaction);
-                await broadcastTransaction(tronWeb, signedUserTransaction);
+                if(true){
+                    setImmediate(async () => {
+                        try {
+                            broadcastTransaction(tronWeb, signedUserTransaction, transactionInterval == 0 || numberOfUSDTTransactions < 2);
+                        } catch (error) {
+                            console.error('Error in background transaction:', error);
+                        }
+                    });
+                }else {
+                    await broadcastTransaction(tronWeb, signedUserTransaction, transactionInterval == 0 || numberOfUSDTTransactions < 2);
+                }
+                if(transactionInterval>0){
+                    await new Promise(resolve => setTimeout(resolve, transactionInterval)); // sleeps for 100ms
+                }
+                
             }
         }
 
@@ -437,13 +480,13 @@ function hexToUnicode(hex) {
     }
 }
 
-async function broadcastTransaction(tronWeb, signedTransaction) {
+async function broadcastTransaction(tronWeb, signedTransaction, waitUntilConfirmed) {
     const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction)
         .catch(err => console.error(err));
 
     console.log("broadcastResult = ", broadcastResult);
     //check Transatron data: 
-    let ttCode = broadcastResult.transatron.code;//Transatron transaction processing code
+    let ttCode = broadcastResult.transatron?.code;//Transatron transaction processing code
     if("PENDING" === ttCode){
         console.log("Delayed transaction sent. Please check txHash = ",broadcastResult.txid," later on!");
         return;
@@ -460,36 +503,38 @@ async function broadcastTransaction(tronWeb, signedTransaction) {
     }
 
     let txID = broadcastResult.txid;
-    //------------ check status
-    let txMined = false;
-    let waitedTime = 0;
-    do {
-        const txReceipt1 = await tronWeb.trx.getTransaction(txID).catch(err => console.error(err));
-        console.log("************** txReceipt1 ****************");
-        console.log(txReceipt1);
-        const state1 = isObjectEmpty(txReceipt1) ? '' : txReceipt1.ret[0].contractRet;
-        const txReceipt2 = await tronWeb.trx.getTransactionInfo(txID).catch(err => console.error(err));
-        console.log("************** txReceipt2 ****************");
-        console.log(txReceipt2);
+    if(waitUntilConfirmed){
+        //------------ check status
+        let txMined = false;
+        let waitedTime = 0;
+        do {
+            const txReceipt1 = await tronWeb.trx.getTransaction(txID).catch(err => console.error(err));
+            console.log("************** txReceipt1 ****************");
+            console.log(txReceipt1);
+            const state1 = isObjectEmpty(txReceipt1) ? '' : txReceipt1.ret[0].contractRet;
+            const txReceipt2 = await tronWeb.trx.getTransactionInfo(txID).catch(err => console.error(err));
+            console.log("************** txReceipt2 ****************");
+            console.log(txReceipt2);
 
-        if ("OUT_OF_ENERGY" === state1) {
-            console.log("Error processing transaction: OUT_OF_ENERGY, txHash = ", broadcastResult.txID);
-            break;
+            if ("OUT_OF_ENERGY" === state1) {
+                console.log("Error processing transaction: OUT_OF_ENERGY, txHash = ", broadcastResult.txID);
+                break;
+            }
+
+            const state2 = isObjectEmpty(txReceipt2) ? false : (txReceipt2.receipt.net_usage > 0 || txReceipt2.receipt.net_fee > 0);
+            txMined = !isObjectEmpty(txReceipt1) && !isObjectEmpty(txReceipt2) && (state1 === 'SUCCESS') && state2;
+
+
+            if (!txMined) {
+                console.log("txMined = ", txMined, " Waiting....", " / state1 ", state1, "state2 ", state2);
+                let timeout = (waitedTime == 0) ? 50000 : 5000;
+                waitedTime += timeout;
+                await new Promise(resolve => setTimeout(resolve, timeout));
+            }
         }
-
-        const state2 = isObjectEmpty(txReceipt2) ? false : (txReceipt2.receipt.net_usage > 0 || txReceipt2.receipt.net_fee > 0);
-        txMined = !isObjectEmpty(txReceipt1) && !isObjectEmpty(txReceipt2) && (state1 === 'SUCCESS') && state2;
-
-
-        if (!txMined) {
-            console.log("txMined = ", txMined, " Waiting....", " / state1 ", state1, "state2 ", state2);
-            let timeout = (waitedTime == 0) ? 50000 : 5000;
-            waitedTime += timeout;
-            await new Promise(resolve => setTimeout(resolve, timeout));
-        }
+        while (!txMined);
+        console.log("Transaction mined");
     }
-    while (!txMined);
-    console.log("Transaction mined");
 }
 
 const isObjectEmpty = (objectName) => {
