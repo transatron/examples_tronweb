@@ -9,7 +9,7 @@
     "@noble/secp256k1": "1.7.1",
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.7",
-    "tronweb": "5.3.0"
+    "tronweb": "6.0.4"
   },
   "scripts": {
     "consolidate:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendAndConsolidate.js",
@@ -19,7 +19,12 @@
     "account:dev": "cross-env NODE_ENV=development node -r dotenv/config src/accountDeposits.js",
     "account:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/accountDeposits.js",
     "bulkorder:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendingBulkOrders.js",
-    "bulkorder:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendingBulkOrders.js"
+    "bulkorder:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendingBulkOrders.js",
+    "sendtx:0xpay": "cross-env NODE_ENV=stage0xpay node -r dotenv/config src/sendingTransactions.js",
+    "sendtx:privax": "cross-env NODE_ENV=stagePrivax node -r dotenv/config src/sendingTransactions.js",
+    "account:0xpay": "cross-env NODE_ENV=stage0xpay node -r dotenv/config src/accountDeposits.js",
+    "sendtx:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/sendingTransactions.js",
+    "account:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/accountDeposits.js"
   }
 
 }

@@ -1,6 +1,6 @@
 var fs = require('fs');
 const dotenv = require('dotenv');
-const TronWeb = require('tronweb');
+const { TronWeb } = require('tronweb');
 const internal = require('stream');
 
 // Load the appropriate .env file based on NODE_ENV
@@ -8,8 +8,20 @@ const env = process.env.NODE_ENV || 'development';
 console.log("loading ",`.env.${env}`);
 dotenv.config({ path: `.env.${env}` });
 
-const USDTContractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-const USDCContractAddress = "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8";
+const TxType = {
+    TRX_TRANSACTION: 'trx_transaction',
+    ACCOUNT_PAYMENT: 'account_payment',
+    INSTANT_PAYMENT_USDT: 'instant_payment_usdt',
+    INSTANT_PAYMENT_TRX: 'instant_payment_trx',
+    COUPON_PAYMENT: 'coupon_payment',
+    DELAYED_TRANSACTION: 'delayed_transaction'
+};
+
+const Token = {
+    USDT: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+    USDC: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8',
+    SUN: 'TSSMHYeV2uE9qYH95DqyoCuNCzEL1NvU3S'
+};
 
 const API = process.env.NODE_API;
 const privateKey = process.env.SENDER_WALLET_PK
@@ -39,41 +51,38 @@ function format(numberUSDTorTRX){
 (async () => {
     try {
 
-        //***************************CHECK THIS SETTINGS HERE *******************/
+        //********************************* CHECK THIS SETTINGS HERE *****************************/
+        //********************************* TEST CONFIGURATION *****************************/
         //set to true for a company (Entity) account with separate deposit/accounting address.
         //leave value as false for individual (sender address) account
-        const areYouACompany = false;
-        //this statement results in Transatron charging all transactions broadcasted with Spender API key from related company account.
-        const tronWeb = (true && areYouACompany)?tronWebSpender:tronWebGeneric;
-        const accountingAddress = areYouACompany?process.env.COMPANY_ACCOUNTING_ADDRESS:tronWeb.defaultAddress.base58;
-        //***************************CHECK THIS SETTINGS HERE *******************/
+        const areYouACompany = true;
+        const runningTxType = TxType.DELAYED_TRANSACTION; 
+        const TRC20ContractAddress = Token.USDT; //token to send
+        const numberOfUSDTTransactions = 1; //applied for ACCOUNT_PAYMENT ONLY
+        const transactionInterval = 1000;//ms
+        const exactTransferAmount = 0; //set to 0 to make test script generate low random transfer amount. 
+        //********************************* END OF TEST CONFIGURATION  *****************************/
+        //********************************* CHECK THIS SETTINGS HERE *****************************
+
+         //this statement results in Transatron charging all transactions broadcasted with Spender API key from related company account.
+         const tronWeb = (true && areYouACompany)?tronWebSpender:tronWebGeneric;
+         const accountingAddress = areYouACompany?process.env.COMPANY_ACCOUNTING_ADDRESS:tronWeb.defaultAddress.base58;
 
         let targetAddress = process.env.RECEIVER_WALLET_ADDRESS; 
         const senderAddress = tronWeb.defaultAddress.base58;
-        console.log("******************************* SENDER WALLET ****************************");
+        console.log("******************************* SENDER WALLET INFO ****************************");
         console.log("senderAddress = ",senderAddress);
         console.log("targetAddress = ",targetAddress);
 
-        // const TRC20ContractAddress = USDCContractAddress;
-        const TRC20ContractAddress = USDTContractAddress;
-
-        // Get the contract instance
-        const USDTInstance = await tronWeb.contract().at(TRC20ContractAddress);
-
-        // Call the balanceOf method
-        const balance = await USDTInstance.methods.balanceOf(senderAddress).call();
-
-        // Convert the balance to a readable format (TRC20 tokens usually have 6 or 18 decimals)
-        const decimals = await USDTInstance.methods.decimals().call(); // Get decimals dynamically
+        const TRC20TokenInstance = await tronWeb.contract().at(TRC20ContractAddress);
+        const symbol = await TRC20TokenInstance.methods.symbol().call();
+        const balance = await TRC20TokenInstance.methods.balanceOf(senderAddress).call();
+        const decimals = await TRC20TokenInstance.methods.decimals().call(); // Get decimals dynamically
         const formattedBalance = balance / Math.pow(10, decimals);
+        console.log(`${symbol} Token Balance(${senderAddress}): ${formattedBalance}`);
 
-        console.log(`USDT Balance: ${formattedBalance}`);
-
-        const balanceTRX = await tronWeb.trx.getBalance(senderAddress);
-
-        // Convert to TRX
+        const balanceTRX = await tronWeb.trx.getBalance(senderAddress); 
         const formattedBalanceTRX = balanceTRX / 1_000_000;
-
         console.log(`TRX Balance: ${formattedBalanceTRX}`);
 
 
@@ -143,11 +152,13 @@ function format(numberUSDTorTRX){
             
         }
 
+        
+
               
-        if (false) {
+        if (runningTxType === TxType.TRX_TRANSACTION) {
             console.log("************* Sending TRX transactions *****************");
             // Amount should be in SUN (1 TRX = 1,000,000 SUN)
-            const amountInSun = 14000000; // 1 TRX
+            const amountInSun = 140000; // 1 TRX
 
             // Create the unsigned transaction
             const unsignedTransaction = await tronWeb.transactionBuilder.sendTrx(
@@ -161,13 +172,13 @@ function format(numberUSDTorTRX){
 
             // Broadcast the signed transaction
             await broadcastTransaction(tronWeb, signedTransaction);
+
+            return;
         }
-        // return;
-
-        const numberOfUSDTTransactions = 1;
-        const transactionInterval = 1000;//ms
-
-        for(let i=0;i<numberOfUSDTTransactions;i++){
+        
+        //broadcast TRC20 transactions
+        let numberOfTx = runningTxType == TxType.ACCOUNT_PAYMENT ? numberOfUSDTTransactions : 1;
+        for(let i=0;i<numberOfTx;i++){
             console.log("************* Sending TRC20 Transaction ",(i+1)," *****************");
             if(process.env.RECEIVER_WALLETS !=null && numberOfUSDTTransactions >1 ){
                 const array = JSON.parse(process.env.RECEIVER_WALLETS);
@@ -177,9 +188,10 @@ function format(numberUSDTorTRX){
                 console.log("targetAddress = ",targetAddress);
             }
 
-            let transferAmount = Math.floor(Math.random() * (15000 - 5000 + 1)) + 5000; // Random amount between 5000 and 15000
+            let transferAmount = exactTransferAmount>0?exactTransferAmount:(Math.floor(Math.random() * (15000 - 5000 + 1)) + 5000); // Random amount between 5000 and 15000
+            console.log("transferAmount = ",transferAmount);
             let _ownerHexAddress = tronWeb.address.toHex(senderAddress);
-            let _USDTContractHexAddress = tronWeb.address.toHex(USDTContractAddress);
+            let _USDTContractHexAddress = tronWeb.address.toHex(Token.USDT);
             let _TRC20ContractHexAddress = tronWeb.address.toHex(TRC20ContractAddress);
             let _callFunction = "transfer(address,uint256)";
             var _callParameters = [{ type: 'address', value: targetAddress }, { type: 'uint256', value: transferAmount }];
@@ -230,20 +242,12 @@ function format(numberUSDTorTRX){
                 options.feeLimit
             );
 
-            // console.log("args = ", args);
-
             pathInfo = "wallet/triggersmartcontract";
             const transactionWrap = await tronWeb['fullNode'].request(
                 pathInfo,
                 args,
                 'post'
             );
-
-            // console.log("transactionWrap = ", transactionWrap);
-
-            //make sure result is "true"
-
-            // console.log("result = ", transactionWrap.result.result);
 
             //check Transatron data: 
             let ttCode = transactionWrap.transatron.code;
@@ -270,192 +274,232 @@ function format(numberUSDTorTRX){
                 + 5; // my assumption from practival experience...
             // console.log("bandwidthRequired = ", bandwidthRequired);
             _transactionFeeBurnTRX = bandwidthRequired * transactionFee + _feeLimit;
-            // console.log("_transactionFeeBurnTRX = ", _transactionFeeBurnTRX);
-            // technically, _transactionFeeBurnTRX == tx_fee_burn_trx
+            
+            console.log("*************  3) sign and broadcast transaction *****************");
 
-            if(true){
-                console.log("*************  3) sign and broadcast transaction *****************");
+            var options = {
+                feeLimit: _feeLimit,
+                callValue: 0,
+                txLocal: true
+            };
 
-                var options = {
-                    feeLimit: _feeLimit,
-                    callValue: 0,
-                    txLocal: true
-                };
+            const transaction = await tronWeb.transactionBuilder._triggerSmartContractLocal(
+                _TRC20ContractHexAddress,
+                _callFunction,
+                options,
+                _callParameters,
+                _ownerHexAddress
+            );
 
-                const transaction = await tronWeb.transactionBuilder._triggerSmartContractLocal(
-                    _TRC20ContractHexAddress,
-                    _callFunction,
-                    options,
-                    _callParameters,
-                    _ownerHexAddress
+            let unsignedUserTransaction = JSON.parse(JSON.stringify(transaction.transaction)); //make a copy
+            let signedUserTransaction = await tronWeb.trx.sign(transaction.transaction, privateKey);
+
+            if(runningTxType === TxType.ACCOUNT_PAYMENT){
+                console.log("************* 3.a) ACCOUNT PAYMENT *****************");
+                console.log("Current balance is: ",format(user_account_balance_rtrx), " RTRX and ",format(user_account_balance_rusdt)," RUSDT");
+                console.log("Transatron will charge ",format((tx_fee_rtrx_account > 0)?tx_fee_rtrx_account:tx_fee_rusdt_account),(tx_fee_rtrx_account > 0)?" RTRX":" RUSDT"," from internal account" );
+            } else if (runningTxType === TxType.INSTANT_PAYMENT_USDT) {
+                console.log("************* 3.b) INSTANT USDT PAYMENT *****************");
+                if(tx_fee_rusdt_instant > 0){
+                    var _callParametersDeposit = [{ type: 'address', value: transatronDepositAddress }, { type: 'uint256', value: tx_fee_rusdt_instant }];
+                    let tccResponse = await tronWeb.transactionBuilder.triggerConstantContract(_USDTContractHexAddress, _callFunction, {}, _callParametersDeposit, _ownerHexAddress);
+                    // console.log('tccResponse',tccResponse);
+                    let energy_used = tccResponse.energy_used;
+    
+                    var _feeLimitDeposit = energy_used * energyFee;
+                    
+                    var options = {
+                        feeLimit: _feeLimitDeposit,
+                        callValue: 0,
+                        txLocal: true
+                    };
+    
+                    const transactionInlinePayment = await tronWeb.transactionBuilder._triggerSmartContractLocal(
+                        _USDTContractHexAddress,
+                        _callFunction,
+                        options,
+                        _callParametersDeposit,
+                        _ownerHexAddress
+                    );
+                    // console.log('transactionInlinePayment',transactionInlinePayment);
+                    
+                    // If privateKey is false, this won't be signed here. We assume sign functionality will be replaced.
+                    const signedTransactionDeposit = await tronWeb.trx.sign(transactionInlinePayment.transaction, privateKey);
+        
+                    // Broadcast the signed transaction
+                    const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransactionDeposit).catch(err => console.error(err));
+                    console.log("broadcast payment tx Result = ", broadcastResult);
+                } else {
+                    console.log("seems address has enough resources, don't need to make instant payment!");
+                }
+            } else if (runningTxType === TxType.INSTANT_PAYMENT_TRX) {
+                console.log("************* 3.c) INSTANT TRX PAYMENT *****************");
+                if(tx_fee_rtrx_instant > 0){
+                    // Create the unsigned transaction
+                    const unsignedTransaction = await tronWeb.transactionBuilder.sendTrx(
+                        transatronDepositAddress,
+                        tx_fee_rtrx_instant,
+                        senderAddress
+                    );
+        
+                    // Sign the transaction
+                    const signedTransaction = await tronWeb.trx.sign(unsignedTransaction);
+        
+                    // Broadcast the signed transaction
+                    const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction).catch(err => console.error(err));
+                    console.log("broadcast payment tx Result = ", broadcastResult);
+                }else {
+                    console.log("seems address has enough resources, don't need to make instant payment!");
+                }
+            } else if (runningTxType === TxType.DELAYED_TRANSACTION){
+                console.log("************* 3.d) SENDING DELAYED TRANSACTION *****************");
+        
+                /**
+                 * IMPORTANT! min accepted delayed transaction expiration is currentTime+1 hour.
+                 * if transaction expiration time is less than currentTime + 1 hour, it will be treated as usual. 
+                 * 
+                 * There's an option to configure this parameter individually for each senderAddress (for example, for 
+                 * specific Hot Wallet address, setting it to 15 min or so. Please contact @TransatronSupport in Telegram
+                 * if requied)
+                 **/
+                
+                //extend expiration by 65 min
+                unsignedUserTransaction.raw_data.expiration += 1000*60*(60+5);
+                //update transaction data
+                const updatedTxPack = await tronWeb.transactionBuilder.newTxID(unsignedUserTransaction);
+                unsignedUserTransaction.txID = updatedTxPack.txID;
+                unsignedUserTransaction.raw_data = updatedTxPack.raw_data;
+                unsignedUserTransaction.raw_data_hex = updatedTxPack.raw_data_hex;
+                unsignedUserTransaction.visible = updatedTxPack.visible;
+                // console.log("udpated transaction = ", unsignedUserTransaction);
+                //re-sign and override transaction object
+                signedUserTransaction = await tronWeb.trx.sign(unsignedUserTransaction, privateKey, false, false);
+                
+                const pendingInfo = await tronWebSpender['fullNode'].request(
+                    "api/v1/pendingtxs",
+                    {address:senderAddress},
+                    'post'
                 );
 
-                let unsignedUserTransaction = JSON.parse(JSON.stringify(transaction.transaction)); //make a copy
-                let signedUserTransaction = await tronWeb.trx.sign(transaction.transaction, privateKey);
-
-                if(true){
-                    console.log("************* 3.a) ACCOUNT PAYMENT *****************");
-                    console.log("Current balance is: ",format(user_account_balance_rtrx), " RTRX and ",format(user_account_balance_rusdt)," RUSDT");
-                    console.log("Transatron will charge ",format((tx_fee_rtrx_account > 0)?tx_fee_rtrx_account:tx_fee_rusdt_account),(tx_fee_rtrx_account > 0)?" RTRX":" RUSDT"," from internal account" );
-                } else if (false) {
-                    console.log("************* 3.b) INSTANT USDT PAYMENT *****************");
-                    if(tx_fee_rusdt_instant > 0){
-                        var _callParametersDeposit = [{ type: 'address', value: transatronDepositAddress }, { type: 'uint256', value: tx_fee_rusdt_instant }];
-                        let tccResponse = await tronWeb.transactionBuilder.triggerConstantContract(_USDTContractHexAddress, _callFunction, {}, _callParametersDeposit, _ownerHexAddress);
-                        // console.log('tccResponse',tccResponse);
-                        let energy_used = tccResponse.energy_used;
-        
-                        var _feeLimitDeposit = energy_used * energyFee;
-                        
-                        var options = {
-                            feeLimit: _feeLimitDeposit,
-                            callValue: 0,
-                            txLocal: true
-                        };
-        
-                        const transactionInlinePayment = await tronWeb.transactionBuilder._triggerSmartContractLocal(
-                            _USDTContractHexAddress,
-                            _callFunction,
-                            options,
-                            _callParametersDeposit,
-                            _ownerHexAddress
-                        );
-                        // console.log('transactionInlinePayment',transactionInlinePayment);
-                        
-                        // If privateKey is false, this won't be signed here. We assume sign functionality will be replaced.
-                        const signedTransactionDeposit = await tronWeb.trx.sign(transactionInlinePayment.transaction, privateKey);
-            
-                        // Broadcast the signed transaction
-                        const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransactionDeposit).catch(err => console.error(err));
-                        console.log("broadcast payment tx Result = ", broadcastResult);
-                    } else {
-                        console.log("seems address has enough resources, don't need to make instant payment!");
-                    }
-                } else if (true) {
-                    console.log("************* 3.c) INSTANT TRX PAYMENT *****************");
-                    if(tx_fee_rtrx_instant > 0){
-                        // Create the unsigned transaction
-                        const unsignedTransaction = await tronWeb.transactionBuilder.sendTrx(
-                            transatronDepositAddress,
-                            tx_fee_rtrx_instant,
-                            senderAddress
-                        );
-            
-                        // Sign the transaction
-                        const signedTransaction = await tronWeb.trx.sign(unsignedTransaction);
-            
-                        // Broadcast the signed transaction
-                        const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction).catch(err => console.error(err));
-                        console.log("broadcast payment tx Result = ", broadcastResult);
-                    }else {
-                        console.log("seems address has enough resources, don't need to make instant payment!");
-                    }
-                } else if (false){
-                    console.log("************* 3.d) SENDING DELAYED TRANSACTION *****************");
-                    //IMPORTANT! make sure originating address (sender address) is registered on Transatron as a "optimized address" prior to sending Delayed transactions. 
+                console.log('Pending transactions data before broadcasting:',pendingInfo);
                 
-                    //IMPORTANT! min accepted delayed transaction expiration is currentTime+3 minutes. 
+            }  else if (runningTxType === TxType.COUPON_PAYMENT){
+                console.log("************* 3.e) PAYING FOR TRANSACTION WITH COUPON *****************");
+                console.log("******************* CREATE COUPON **************************");
+                
+                /**
+                 * Every coupon is 1-time-use only.
+                 * You can limit coupon to 1 default USDT transaction by setting usdt_transactions = 1
+                 * Alternatively, you can set rtrx_limit usage cap
+                 * 
+                 * If transaction will need smaller fee, remaining RTRX will be refunded back to a company account.
+                 *
+                 * For custom smart contract (not USDT transfer) transaction, set rtrx_limit = _feeLimit
+                 * For TRX transfer transaction, set rtrx_limit = 300000 (0.3 TRX)
+                 */
+                const request = {
+                    rtrx_limit: 0,
+                    usdt_transactions: 1,
+                    address: senderAddress, //coupon can be address limited. set address value here to limit to coupon usage to specific address
+                    valid_to: (new Date()).getTime() + 10*60*1000 //10 min validity
+                    };
+                //console.log("request= ",request);
+                
+                let couponCode;
+                //IMPORTANT! Make sure you are using _SPENDER API key for creating coupons! 
+                const couponInfo = await tronWebSpender['fullNode'].request(
+                    "api/v1/coupon",
+                    request,
+                    'post'
+                );
 
-                    //extend expiration to 15 min
-                    unsignedUserTransaction.raw_data.expiration += 1000*60*15;
-                    //update transaction data
-                    const updatedTxPack = await tronWeb.transactionBuilder.newTxID(unsignedUserTransaction);
-                    unsignedUserTransaction.txID = updatedTxPack.txID;
-                    unsignedUserTransaction.raw_data = updatedTxPack.raw_data;
-                    unsignedUserTransaction.raw_data_hex = updatedTxPack.raw_data_hex;
-                    unsignedUserTransaction.visible = updatedTxPack.visible;
-                    // console.log("udpated transaction = ", unsignedUserTransaction);
-                    //re-sign and override transaction object
-                    signedUserTransaction = await tronWeb.trx.sign(unsignedUserTransaction, privateKey, false, false);
-                    const pendingInfo = await tronWebSpender['fullNode'].request(
-                        "api/v1/pendingtxs",
-                        "",
+                console.log("couponInfoPOST = ", couponInfo);
+
+                // console.log("couponInfo = ", couponInfo);
+                if("SUCCESS" === couponInfo.code){
+                    couponCode = couponInfo.coupon.id;
+                    let balanceRTRX = couponInfo.balance_rtrx;
+                    let balanceRUSDT = couponInfo.balance_rusdt;
+                    let balanceOnUnspentCouponsRTRX = couponInfo.balance_on_coupons_rtrx;
+                    console.log("couponCode = ",couponCode);
+                    console.log("balanceRTRX = ",balanceRTRX);
+                    console.log("balanceRUSDT = ",balanceRUSDT);
+                    console.log("balanceOnUnspentCouponsRTRX = ",balanceOnUnspentCouponsRTRX);
+                }
+            
+                //read coupon data
+                if(true){
+                    const couponInfoGET = await tronWebSpender['fullNode'].request(
+                        "api/v1/coupon/"+couponCode,
                         'get'
                     );
+                    console.log("couponInfoGET = ", couponInfoGET);
+                }
 
-                    console.log('Pending transactions data:',pendingInfo)
-                    if(true){
-                        const pendingInfoFlush = await tronWebSpender['fullNode'].request(
-                            "api/v1/pendingtxs/flush",
-                            "{}",
-                            'post'
-                        );
-    
-                        console.log('Pending transactions flush data:',pendingInfoFlush)
+                //set coupon as a separate parameter of signed transaction.
+                console.log("Use coupon for transaction. ",couponCode);
+                signedUserTransaction.coupon = couponCode;
+            }
+
+            var waitingForBroadcastResult = true;//default
+            if(runningTxType === TxType.DELAYED_TRANSACTION){
+                waitingForBroadcastResult = false;
+            } else if(runningTxType === TxType.ACCOUNT_PAYMENT){
+                waitingForBroadcastResult = transactionInterval == 0 || numberOfUSDTTransactions < 2;
+            }
+ 
+            if(numberOfTx > 1 ){
+                //async broadcast
+                setImmediate(async () => {
+                    try {
+                        broadcastTransaction(tronWeb, signedUserTransaction, waitingForBroadcastResult);
+                    } catch (error) {
+                        console.error('Error in background transaction:', error);
                     }
-                }  else if (true){
-                    console.log("************* 3.e) PAYING FOR TRANSACTION WITH COUPON *****************");
-                    console.log("******************* CREATE COUPON **************************");
-                    
-                    //every coupon is 1-time-use 
-                    //you can limit coupon to 1 default USDT transaction by setting usdt_transactions = 1
-                    //alternatively, you can set rtrx_limit usage cap
-                    //if transaction will need smaller fee, remaining RTRX will be refunded to a company account.
-                    //
-                    // for custom smart contract (not USDT transfer) transaction, set rtrx_limit = _feeLimit
-                    // for TRX transfer transaction, set rtrx_limit = 300000 (0.3 TRX)
-                    const request = {
-                        rtrx_limit: 0,
-                        usdt_transactions: 1,
-                        address: senderAddress, //coupon can be address limited. set address value here to limit to coupon usage to specific address
-                        valid_to: (new Date()).getTime() + 1*60*1000 //1 min validity
-                        };
-                    //console.log("request= ",request);
-                    
-                    let couponCode;
-                    //IMPORTANT! Make sure you are using _SPENDER API key for creating coupons! 
-                    const couponInfo = await tronWebSpender['fullNode'].request(
-                        "api/v1/coupon",
-                        request,
+                });
+            }else {
+                //sync broadcast and wait for tx to be processed
+                await broadcastTransaction(tronWeb, signedUserTransaction, waitingForBroadcastResult);
+            }
+
+            if(runningTxType === TxType.DELAYED_TRANSACTION){
+                const pendingInfo = await tronWebSpender['fullNode'].request(
+                    "api/v1/pendingtxs",
+                    {address:senderAddress},
+                    'post'
+                );
+
+                console.log('Pending transactions data after broadcasting:',pendingInfo);
+
+                console.log('waiting for 1 minute before flushing delayed txs ...');
+                await new Promise(resolve => setTimeout(resolve, 60*1000));
+                const flushPendingTx = await tronWebSpender['fullNode'].request(
+                    "api/v1/pendingtxs/flush",
+                    {address:senderAddress},
+                    'post'
+                );
+                console.log('Flushing pending txs:',flushPendingTx);
+
+
+                for(var k=0;k<6;k++){
+                    const pendingInfoAfterFlush = await tronWebSpender['fullNode'].request(
+                        "api/v1/pendingtxs",
+                        {address:senderAddress},
                         'post'
                     );
-    
-                    // console.log("couponInfo = ", couponInfo);
-                    if("SUCCESS" === couponInfo.code){
-                        couponCode = couponInfo.coupon.id;
-                        let balanceRTRX = couponInfo.balance_rtrx;
-                        let balanceRUSDT = couponInfo.balance_rusdt;
-                        let balanceOnUnspentCouponsRTRX = couponInfo.balance_on_coupons_rtrx;
-                        console.log("couponCode = ",couponCode);
-                        console.log("balanceRTRX = ",balanceRTRX);
-                        console.log("balanceRUSDT = ",balanceRUSDT);
-                        console.log("balanceOnUnspentCouponsRTRX = ",balanceOnUnspentCouponsRTRX);
-                    }
-                
-                    //read coupon data
-                    if(true){
-                        const couponInfoGET = await tronWebSpender['fullNode'].request(
-                            "api/v1/coupon/"+couponCode,
-                            'get'
-                        );
-                        console.log("couponInfoGET = ", couponInfoGET);
-                    }
-
-                    //set coupon as a separate parameter of signed transaction.
-                    console.log("Use coupon for transaction. ",couponCode);
-                    signedUserTransaction.coupon = couponCode;
-                }
-
-                // console.log("signed transaction = ", signedTransaction);
-                if(true){
-                    setImmediate(async () => {
-                        try {
-                            broadcastTransaction(tronWeb, signedUserTransaction, transactionInterval == 0 || numberOfUSDTTransactions < 2);
-                        } catch (error) {
-                            console.error('Error in background transaction:', error);
-                        }
-                    });
-                }else {
-                    await broadcastTransaction(tronWeb, signedUserTransaction, transactionInterval == 0 || numberOfUSDTTransactions < 2);
-                }
-                if(transactionInterval>0){
-                    await new Promise(resolve => setTimeout(resolve, transactionInterval)); // sleeps for 100ms
+                    console.log('Pending transactions after flush:',pendingInfoAfterFlush);
+                    await new Promise(resolve => setTimeout(resolve, 10*1000));
                 }
                 
             }
-        }
 
-        console.log("Done");
+            if(transactionInterval>0){
+                await new Promise(resolve => setTimeout(resolve, transactionInterval));
+            }
+                
+            
+        }
+        console.log("Completed");
 
     } catch (error) {
         console.error('Error ', error);
@@ -481,6 +525,12 @@ function hexToUnicode(hex) {
 }
 
 async function broadcastTransaction(tronWeb, signedTransaction, waitUntilConfirmed) {
+    console.log("Broadcast transaction ", signedTransaction.txID, " waitUntilConfirmed=",waitUntilConfirmed);
+    if(waitUntilConfirmed){
+        console.log("Waiting until confirmed...");
+    }else {
+        console.log("Withoug confirmation waiting.");
+    }
     const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction)
         .catch(err => console.error(err));
 

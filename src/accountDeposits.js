@@ -1,6 +1,6 @@
 var fs = require('fs');
 const dotenv = require('dotenv');
-const TronWeb = require('tronweb');
+const { TronWeb } = require('tronweb');
 
 // Load the appropriate .env file based on NODE_ENV
 const env = process.env.NODE_ENV || 'development';
@@ -43,8 +43,8 @@ const tronWeb = new TronWeb({
         const balance = await USDTInstance.methods.balanceOf(senderAddress).call();
 
         // Convert the balance to a readable format (TRC20 tokens usually have 6 or 18 decimals)
-        const decimals = await USDTInstance.methods.decimals().call(); // Get decimals dynamically
-        const formattedBalance = balance / Math.pow(10, decimals);
+        const decimals = await USDTInstance.methods.decimals().call();
+        const formattedBalance = Number(balance) / Math.pow(10, Number(decimals));
 
         console.log(`USDT Balance: ${formattedBalance}`);
 
