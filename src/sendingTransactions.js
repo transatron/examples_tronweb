@@ -8,6 +8,8 @@ const env = process.env.NODE_ENV || 'development';
 console.log("loading ",`.env.${env}`);
 dotenv.config({ path: `.env.${env}` });
 
+const showDebugInfo = false;
+
 const TxType = {
     TRX_TRANSACTION: 'trx_transaction',
     ACCOUNT_PAYMENT: 'account_payment',
@@ -26,7 +28,7 @@ const Token = {
 const API = process.env.NODE_API;
 const privateKey = process.env.SENDER_WALLET_PK
 
-const tronWebGeneric = new TronWeb({
+const tronWebNonSpender = new TronWeb({
     fullHost: API,
     eventServer: API,
     privateKey: privateKey,
@@ -56,17 +58,17 @@ function format(numberUSDTorTRX){
         //set to true for a company (Entity) account with separate deposit/accounting address.
         //leave value as false for individual (sender address) account
         const areYouACompany = true;
-        const runningTxType = TxType.DELAYED_TRANSACTION; 
+        const runningTxType = TxType.ACCOUNT_PAYMENT; 
         const TRC20ContractAddress = Token.USDT; //token to send
-        const numberOfUSDTTransactions = 1; //applied for ACCOUNT_PAYMENT ONLY
+        const numberOfUSDTTransactions = 1; //applied for ACCOUNT_PAYMENT or DELAYED_TRANSACTIONS 
         const transactionInterval = 1000;//ms
         const exactTransferAmount = 0; //set to 0 to make test script generate low random transfer amount. 
         //********************************* END OF TEST CONFIGURATION  *****************************/
         //********************************* CHECK THIS SETTINGS HERE *****************************
 
          //this statement results in Transatron charging all transactions broadcasted with Spender API key from related company account.
-         const tronWeb = (true && areYouACompany)?tronWebSpender:tronWebGeneric;
-         const accountingAddress = areYouACompany?process.env.COMPANY_ACCOUNTING_ADDRESS:tronWeb.defaultAddress.base58;
+        let tronWeb = areYouACompany ? tronWebSpender:tronWebNonSpender;
+        const accountingAddress = areYouACompany?process.env.COMPANY_ACCOUNTING_ADDRESS:tronWeb.defaultAddress.base58;
 
         let targetAddress = process.env.RECEIVER_WALLET_ADDRESS; 
         const senderAddress = tronWeb.defaultAddress.base58;
@@ -78,7 +80,7 @@ function format(numberUSDTorTRX){
         const symbol = await TRC20TokenInstance.methods.symbol().call();
         const balance = await TRC20TokenInstance.methods.balanceOf(senderAddress).call();
         const decimals = await TRC20TokenInstance.methods.decimals().call(); // Get decimals dynamically
-        const formattedBalance = balance / Math.pow(10, decimals);
+        const formattedBalance = Number(balance) / Math.pow(10, Number(decimals));
         console.log(`${symbol} Token Balance(${senderAddress}): ${formattedBalance}`);
 
         const balanceTRX = await tronWeb.trx.getBalance(senderAddress); 
@@ -171,13 +173,13 @@ function format(numberUSDTorTRX){
             const signedTransaction = await tronWeb.trx.sign(unsignedTransaction);
 
             // Broadcast the signed transaction
-            await broadcastTransaction(tronWeb, signedTransaction);
+            await broadcastTransaction(tronWeb, signedTransaction, true);
 
             return;
         }
         
         //broadcast TRC20 transactions
-        let numberOfTx = runningTxType == TxType.ACCOUNT_PAYMENT ? numberOfUSDTTransactions : 1;
+        let numberOfTx = (runningTxType == TxType.ACCOUNT_PAYMENT || runningTxType == TxType.DELAYED_TRANSACTION )? numberOfUSDTTransactions : 1;
         for(let i=0;i<numberOfTx;i++){
             console.log("************* Sending TRC20 Transaction ",(i+1)," *****************");
             if(process.env.RECEIVER_WALLETS !=null && numberOfUSDTTransactions >1 ){
@@ -300,6 +302,14 @@ function format(numberUSDTorTRX){
                 console.log("Transatron will charge ",format((tx_fee_rtrx_account > 0)?tx_fee_rtrx_account:tx_fee_rusdt_account),(tx_fee_rtrx_account > 0)?" RTRX":" RUSDT"," from internal account" );
             } else if (runningTxType === TxType.INSTANT_PAYMENT_USDT) {
                 console.log("************* 3.b) INSTANT USDT PAYMENT *****************");
+                /**
+                 * IMPORTANT! Instant payments are designed to go through non-spender API key (i.e. by non-custody wallet)
+                 * 
+                 * Sending instant payments via Spender key within account with non-negative balance will result in charging such transaction 
+                 * as if it is 'ACCOUNT_PAYMENT'. Instant payment transaction will not be broadcasted at all in this case. 
+                 */
+                tronWeb = tronWebNonSpender;
+
                 if(tx_fee_rusdt_instant > 0){
                     var _callParametersDeposit = [{ type: 'address', value: transatronDepositAddress }, { type: 'uint256', value: tx_fee_rusdt_instant }];
                     let tccResponse = await tronWeb.transactionBuilder.triggerConstantContract(_USDTContractHexAddress, _callFunction, {}, _callParametersDeposit, _ownerHexAddress);
@@ -334,6 +344,13 @@ function format(numberUSDTorTRX){
                 }
             } else if (runningTxType === TxType.INSTANT_PAYMENT_TRX) {
                 console.log("************* 3.c) INSTANT TRX PAYMENT *****************");
+                /**
+                 * IMPORTANT! Instant payments are designed to go through non-spender API key (i.e. by non-custody wallet)
+                 * 
+                 * Sending instant payments via Spender key within account with non-negative balance will result in charging such transaction 
+                 * as if it is 'ACCOUNT_PAYMENT'. Instant payment transaction will not be broadcasted at all in this case. 
+                 */
+                tronWeb = tronWebNonSpender;
                 if(tx_fee_rtrx_instant > 0){
                     // Create the unsigned transaction
                     const unsignedTransaction = await tronWeb.transactionBuilder.sendTrx(
@@ -381,7 +398,7 @@ function format(numberUSDTorTRX){
                     'post'
                 );
 
-                console.log('Pending transactions data before broadcasting:',pendingInfo);
+                console.log(`Delayed transactions before broadcastting, pending txs: ${pendingInfo.pending_transactions_amount}, processing txs ${pendingInfo.processing_transactions_amount}`);
                 
             }  else if (runningTxType === TxType.COUPON_PAYMENT){
                 console.log("************* 3.e) PAYING FOR TRANSACTION WITH COUPON *****************");
@@ -431,6 +448,7 @@ function format(numberUSDTorTRX){
                 if(true){
                     const couponInfoGET = await tronWebSpender['fullNode'].request(
                         "api/v1/coupon/"+couponCode,
+                        {},
                         'get'
                     );
                     console.log("couponInfoGET = ", couponInfoGET);
@@ -439,6 +457,14 @@ function format(numberUSDTorTRX){
                 //set coupon as a separate parameter of signed transaction.
                 console.log("Use coupon for transaction. ",couponCode);
                 signedUserTransaction.coupon = couponCode;
+
+                /**
+                 * IMPORTANT! Coupons are designed to go through non-spender API key (i.e. by non-custody wallet)
+                 * 
+                 * Sending transaction with coupons via Spender key within account with non-negative balance will result in charging such transaction 
+                 * as if it is 'ACCOUNT_PAYMENT' tx. Coupon will not be applied. 
+                 */
+                tronWeb = tronWebNonSpender;
             }
 
             var waitingForBroadcastResult = true;//default
@@ -462,44 +488,52 @@ function format(numberUSDTorTRX){
                 await broadcastTransaction(tronWeb, signedUserTransaction, waitingForBroadcastResult);
             }
 
-            if(runningTxType === TxType.DELAYED_TRANSACTION){
-                const pendingInfo = await tronWebSpender['fullNode'].request(
+            if(transactionInterval>0){
+                await new Promise(resolve => setTimeout(resolve, transactionInterval));
+            }    
+        }
+
+        if(runningTxType === TxType.DELAYED_TRANSACTION){
+            const pendingInfo = await tronWebSpender['fullNode'].request(
+                "api/v1/pendingtxs",
+                {address:senderAddress},
+                'post'
+            );
+
+            console.log(`Delayed transactions after broadcastting, pending txs: ${pendingInfo.pending_transactions_amount}, processing txs ${pendingInfo.processing_transactions_amount}`);
+
+            console.log('waiting for 1 minute before flushing delayed txs ...');
+            await new Promise(resolve => setTimeout(resolve, 60*1000));
+            console.log('Flushing pending txs...');
+            const flushPendingTx = await tronWebSpender['fullNode'].request(
+                "api/v1/pendingtxs/flush",
+                {address:senderAddress},
+                'post'
+            );
+
+            const verificationDelay = 1;//sec
+            const verificationInterval = 5;//sec
+            const verificationTimeout = 30;//sec
+            var pendingInfoAfterFlush;
+
+            await new Promise(resolve => setTimeout(resolve, verificationDelay*1000));
+            var k = verificationDelay;
+            do{
+                pendingInfoAfterFlush = await tronWebSpender['fullNode'].request(
                     "api/v1/pendingtxs",
                     {address:senderAddress},
                     'post'
                 );
-
-                console.log('Pending transactions data after broadcasting:',pendingInfo);
-
-                console.log('waiting for 1 minute before flushing delayed txs ...');
-                await new Promise(resolve => setTimeout(resolve, 60*1000));
-                const flushPendingTx = await tronWebSpender['fullNode'].request(
-                    "api/v1/pendingtxs/flush",
-                    {address:senderAddress},
-                    'post'
-                );
-                console.log('Flushing pending txs:',flushPendingTx);
-
-
-                for(var k=0;k<6;k++){
-                    const pendingInfoAfterFlush = await tronWebSpender['fullNode'].request(
-                        "api/v1/pendingtxs",
-                        {address:senderAddress},
-                        'post'
-                    );
-                    console.log('Pending transactions after flush:',pendingInfoAfterFlush);
-                    await new Promise(resolve => setTimeout(resolve, 10*1000));
-                }
-                
-            }
-
-            if(transactionInterval>0){
-                await new Promise(resolve => setTimeout(resolve, transactionInterval));
-            }
-                
+                console.log(`Delayed transactions after flush in ${k} sec, pending txs: ${pendingInfoAfterFlush.pending_transactions_amount}, processing txs ${pendingInfoAfterFlush.processing_transactions_amount}`);    
+                await new Promise(resolve => setTimeout(resolve, verificationInterval*1000));
+                k+=verificationInterval;
+            } while((pendingInfoAfterFlush.pending_transactions_amount > 0 || pendingInfoAfterFlush.processing_transactions_amount > 0) && k < verificationTimeout);
             
-        }
-        console.log("Completed");
+            console.log("Transactions processed!")
+
+            return;
+        } 
+        console.log(`Completed. ${numberOfTx} transactions sent.`);
 
     } catch (error) {
         console.error('Error ', error);
@@ -525,16 +559,17 @@ function hexToUnicode(hex) {
 }
 
 async function broadcastTransaction(tronWeb, signedTransaction, waitUntilConfirmed) {
-    console.log("Broadcast transaction ", signedTransaction.txID, " waitUntilConfirmed=",waitUntilConfirmed);
     if(waitUntilConfirmed){
-        console.log("Waiting until confirmed...");
+        console.log(`Broadcasting tx ${signedTransaction.txID} and waiting until confirmed...`);
     }else {
-        console.log("Withoug confirmation waiting.");
+        console.log(`Broadcasting tx ${signedTransaction.txID}  without waiting for confirmation...`);
     }
     const broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction)
         .catch(err => console.error(err));
 
-    console.log("broadcastResult = ", broadcastResult);
+    if(showDebugInfo){
+        console.log("broadcastResult = ", broadcastResult);
+    }
     //check Transatron data: 
     let ttCode = broadcastResult.transatron?.code;//Transatron transaction processing code
     if("PENDING" === ttCode){
@@ -559,13 +594,16 @@ async function broadcastTransaction(tronWeb, signedTransaction, waitUntilConfirm
         let waitedTime = 0;
         do {
             const txReceipt1 = await tronWeb.trx.getTransaction(txID).catch(err => console.error(err));
-            console.log("************** txReceipt1 ****************");
-            console.log(txReceipt1);
+            if(showDebugInfo){
+                console.log("************** txReceipt1 ****************");
+                console.log(txReceipt1);
+            }
             const state1 = isObjectEmpty(txReceipt1) ? '' : txReceipt1.ret[0].contractRet;
             const txReceipt2 = await tronWeb.trx.getTransactionInfo(txID).catch(err => console.error(err));
-            console.log("************** txReceipt2 ****************");
-            console.log(txReceipt2);
-
+            if(showDebugInfo){
+                console.log("************** txReceipt2 ****************");
+                console.log(txReceipt2);
+            }
             if ("OUT_OF_ENERGY" === state1) {
                 console.log("Error processing transaction: OUT_OF_ENERGY, txHash = ", broadcastResult.txID);
                 break;
