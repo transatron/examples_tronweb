@@ -58,10 +58,11 @@ function format(numberUSDTorTRX){
         //set to true for a company (Entity) account with separate deposit/accounting address.
         //leave value as false for individual (sender address) account
         const areYouACompany = true;
-        const runningTxType = TxType.ACCOUNT_PAYMENT; 
+        const runningTxType = TxType.DELAYED_TRANSACTION; 
+        const delayedTransactionIncreaseExpirationBy = 6; //min
         const TRC20ContractAddress = Token.USDT; //token to send
         const numberOfUSDTTransactions = 1; //applied for ACCOUNT_PAYMENT or DELAYED_TRANSACTIONS 
-        const transactionInterval = 1000;//ms
+        const transactionInterval = 100;//ms
         const exactTransferAmount = 0; //set to 0 to make test script generate low random transfer amount. 
         //********************************* END OF TEST CONFIGURATION  *****************************/
         //********************************* CHECK THIS SETTINGS HERE *****************************
@@ -88,11 +89,11 @@ function format(numberUSDTorTRX){
         console.log(`TRX Balance: ${formattedBalanceTRX}`);
 
 
-        let transatronRTRXContractAddress = "";
-        let transatronRUSDTContractAddress = "";
+        let transatronTronTFNContractAddress = "";
+        let transatronTronTFUContractAddress = "";
         let transatronDepositAddress = "";
         let transatronMinUSDTDeposit = 0;
-        let transatronMinTRXDeposit = 0;
+        let transatronMinNativeTRXDeposit = 0;
 
         let RTRXInstance;
         let RUSDTInstance;
@@ -132,24 +133,24 @@ function format(numberUSDTorTRX){
             //read Transatron parameters
             if (nodeInfo.transatronInfo) {
                     transatronDepositAddress = nodeInfo.transatronInfo.deposit_address;
-                    transatronRTRXContractAddress = nodeInfo.transatronInfo.rtrx_token_address;
-                    transatronRUSDTContractAddress = nodeInfo.transatronInfo.rusdt_token_address;
+                    transatronTronTFNContractAddress = nodeInfo.transatronInfo.rtrx_token_address;
+                    transatronTronTFUContractAddress = nodeInfo.transatronInfo.rusdt_token_address;
                     transatronMinUSDTDeposit = nodeInfo.transatronInfo.rusdt_min_deposit;
-                    transatronMinTRXDeposit = nodeInfo.transatronInfo.rtrx_min_deposit;
+                    transatronMinNativeTRXDeposit = nodeInfo.transatronInfo.rtrx_min_deposit;
                     console.log("transatronDepositAddress = ", transatronDepositAddress);
-                    console.log("transatronRTRXContractAddress = ", transatronRTRXContractAddress);
-                    console.log("transatronRUSDTContractAddress = ", transatronRUSDTContractAddress);
+                    console.log("transatronTronTFNContractAddress = ", transatronTronTFNContractAddress);
+                    console.log("transatronTronTFUContractAddress = ", transatronTronTFUContractAddress);
                     console.log("transatronMinUSDTDeposit = ", transatronMinUSDTDeposit);
-                    console.log("transatronMinTRXDeposit = ", transatronMinTRXDeposit);
+                    console.log("transatronMinTRXDeposit = ", transatronMinNativeTRXDeposit);
 
-                    RTRXInstance = await tronWeb.contract().at(transatronRTRXContractAddress);
-                    RUSDTInstance = await tronWeb.contract().at(transatronRUSDTContractAddress);
+                    RTRXInstance = await tronWeb.contract().at(transatronTronTFNContractAddress);
+                    RUSDTInstance = await tronWeb.contract().at(transatronTronTFUContractAddress);
 
                     let rtrxUserBalance = await RTRXInstance.methods.balanceOf(accountingAddress).call();
-                    console.log("RTRX Balance = ", rtrxUserBalance.toString());
+                    console.log("TFN (former RTRX) Balance = ", rtrxUserBalance.toString());
 
                     let rusdtUserBalance = await RUSDTInstance.methods.balanceOf(accountingAddress).call();
-                    console.log("RUSDT Balance = ", rusdtUserBalance.toString());
+                    console.log("TFU (former RUSDT) Balance = ", rusdtUserBalance.toString());
                 }
             
         }
@@ -253,21 +254,21 @@ function format(numberUSDTorTRX){
 
             //check Transatron data: 
             let ttCode = transactionWrap.transatron.code;
-            let tx_fee_rtrx_account = transactionWrap.transatron.tx_fee_rtrx_account;//transaction fee in Transatron RTRX token from internal account.
-            let tx_fee_rusdt_account = transactionWrap.transatron.tx_fee_rusdt_account;//transaction fee in Transatron RUSDT token from internal account.
-            let tx_fee_rtrx_instant = transactionWrap.transatron.tx_fee_rtrx_instant;//transaction fee in TRX when paid instantly
-            let tx_fee_rusdt_instant = transactionWrap.transatron.tx_fee_rusdt_instant;//transaction fee in USDT when paid instantly
-            let user_account_balance_rtrx = transactionWrap.transatron.user_account_balance_rtrx;//transaction fee in USDT when paid instantly
-            let user_account_balance_rusdt = transactionWrap.transatron.user_account_balance_rusdt;//transaction fee in USDT when paid instantly    
+            let tx_fee_tfn_account = transactionWrap.transatron.tx_fee_rtrx_account;//transaction fee in Transatron RTRX token from internal account.
+            let tx_fee_tfu_account = transactionWrap.transatron.tx_fee_rusdt_account;//transaction fee in Transatron RUSDT token from internal account.
+            let tx_fee_tfn_instant = transactionWrap.transatron.tx_fee_rtrx_instant;//transaction fee in TRX when paid instantly
+            let tx_fee_tfu_instant = transactionWrap.transatron.tx_fee_rusdt_instant;//transaction fee in USDT when paid instantly
+            let user_account_balance_tfn = transactionWrap.transatron.user_account_balance_rtrx;//transaction fee in USDT when paid instantly
+            let user_account_balance_tfu = transactionWrap.transatron.user_account_balance_rusdt;//transaction fee in USDT when paid instantly    
             let tx_fee_burn_trx = transactionWrap.transatron.tx_fee_burn_trx; //transaction fee in user will burn TRX for transaction. i.e. without Transatron
             let message = transactionWrap.transatron.message;
             //decode message
             let decodedMessage = hexToUnicode(message);
             console.log("Transatron estimated result code:", ttCode, " message:",decodedMessage);
-            console.log("Transatron fees if charged from internal account (RTRX/RUSDT)", format(tx_fee_rtrx_account), " RTRX / ",format(tx_fee_rusdt_account)," RUSDT");
-            console.log("In case of paying with instant payment, the transaction fee would be ",format(tx_fee_rtrx_instant)," TRX or ",format(tx_fee_rusdt_instant)," USDT");
+            console.log("Transatron fees if charged from internal account (TFN/TFU)", format(tx_fee_tfn_account), " TFN (former RTRX) / ",format(tx_fee_tfu_account)," TFU (former RUSDT)");
+            console.log("In case of paying with instant payment, the transaction fee would be ",format(tx_fee_tfn_instant)," TRX or ",format(tx_fee_tfu_instant)," USDT");
             console.log("In case TRX will be burned for transaction, the fee would be: ",format(tx_fee_burn_trx)," TRX");
-            console.log("Current balance is: ",format(user_account_balance_rtrx), " RTRX and ",format(user_account_balance_rusdt)," RUSDT");
+            console.log("Current balance is: ",format(user_account_balance_tfn), " TFN (former RTRX) and ",format(user_account_balance_tfu)," TFU (former RUSDT)");
 
             //calculate bandwidth required:
             let bandwidthRequired = transactionWrap.transaction.raw_data_hex.length / 2 //raw data size in bytes
@@ -298,8 +299,8 @@ function format(numberUSDTorTRX){
 
             if(runningTxType === TxType.ACCOUNT_PAYMENT){
                 console.log("************* 3.a) ACCOUNT PAYMENT *****************");
-                console.log("Current balance is: ",format(user_account_balance_rtrx), " RTRX and ",format(user_account_balance_rusdt)," RUSDT");
-                console.log("Transatron will charge ",format((tx_fee_rtrx_account > 0)?tx_fee_rtrx_account:tx_fee_rusdt_account),(tx_fee_rtrx_account > 0)?" RTRX":" RUSDT"," from internal account" );
+                console.log("Current balance is: ",format(user_account_balance_tfn), " TFN (former RTRX) and ",format(user_account_balance_tfu)," TFU (former RUSDT)");
+                console.log("Transatron will charge ",format((tx_fee_tfn_account > 0)?tx_fee_tfn_account:tx_fee_tfu_account),(tx_fee_tfn_account > 0)?" TFN":" TFU"," from internal account" );
             } else if (runningTxType === TxType.INSTANT_PAYMENT_USDT) {
                 console.log("************* 3.b) INSTANT USDT PAYMENT *****************");
                 /**
@@ -310,8 +311,8 @@ function format(numberUSDTorTRX){
                  */
                 tronWeb = tronWebNonSpender;
 
-                if(tx_fee_rusdt_instant > 0){
-                    var _callParametersDeposit = [{ type: 'address', value: transatronDepositAddress }, { type: 'uint256', value: tx_fee_rusdt_instant }];
+                if(tx_fee_tfu_instant > 0){
+                    var _callParametersDeposit = [{ type: 'address', value: transatronDepositAddress }, { type: 'uint256', value: tx_fee_tfu_instant }];
                     let tccResponse = await tronWeb.transactionBuilder.triggerConstantContract(_USDTContractHexAddress, _callFunction, {}, _callParametersDeposit, _ownerHexAddress);
                     // console.log('tccResponse',tccResponse);
                     let energy_used = tccResponse.energy_used;
@@ -351,11 +352,11 @@ function format(numberUSDTorTRX){
                  * as if it is 'ACCOUNT_PAYMENT'. Instant payment transaction will not be broadcasted at all in this case. 
                  */
                 tronWeb = tronWebNonSpender;
-                if(tx_fee_rtrx_instant > 0){
+                if(tx_fee_tfn_instant > 0){
                     // Create the unsigned transaction
                     const unsignedTransaction = await tronWeb.transactionBuilder.sendTrx(
                         transatronDepositAddress,
-                        tx_fee_rtrx_instant,
+                        tx_fee_tfn_instant,
                         senderAddress
                     );
         
@@ -380,8 +381,13 @@ function format(numberUSDTorTRX){
                  * if requied)
                  **/
                 
-                //extend expiration by 65 min
-                unsignedUserTransaction.raw_data.expiration += 1000*60*(60+5);
+                //extend expiration by a number of minutes
+                if(delayedTransactionIncreaseExpirationBy < 1){
+                    console.log("Incorrect delayedTransactionIncreaseExpirationBy parameter. Should be either > 60 min or configured with custom settings via support ticket. ");
+                    return;
+                }
+                console.log(`Increasing transaction expiration by ${delayedTransactionIncreaseExpirationBy} min.`)
+                unsignedUserTransaction.raw_data.expiration += 1000*60*delayedTransactionIncreaseExpirationBy;
                 //update transaction data
                 const updatedTxPack = await tronWeb.transactionBuilder.newTxID(unsignedUserTransaction);
                 unsignedUserTransaction.txID = updatedTxPack.txID;
@@ -399,7 +405,7 @@ function format(numberUSDTorTRX){
                 );
 
                 console.log(`Delayed transactions before broadcastting, pending txs: ${pendingInfo.pending_transactions_amount}, processing txs ${pendingInfo.processing_transactions_amount}`);
-                
+            
             }  else if (runningTxType === TxType.COUPON_PAYMENT){
                 console.log("************* 3.e) PAYING FOR TRANSACTION WITH COUPON *****************");
                 console.log("******************* CREATE COUPON **************************");
@@ -409,7 +415,7 @@ function format(numberUSDTorTRX){
                  * You can limit coupon to 1 default USDT transaction by setting usdt_transactions = 1
                  * Alternatively, you can set rtrx_limit usage cap
                  * 
-                 * If transaction will need smaller fee, remaining RTRX will be refunded back to a company account.
+                 * If transaction will need smaller fee, remaining TFN will be refunded back to a company account.
                  *
                  * For custom smart contract (not USDT transfer) transaction, set rtrx_limit = _feeLimit
                  * For TRX transfer transaction, set rtrx_limit = 300000 (0.3 TRX)
@@ -435,13 +441,13 @@ function format(numberUSDTorTRX){
                 // console.log("couponInfo = ", couponInfo);
                 if("SUCCESS" === couponInfo.code){
                     couponCode = couponInfo.coupon.id;
-                    let balanceRTRX = couponInfo.balance_rtrx;
-                    let balanceRUSDT = couponInfo.balance_rusdt;
-                    let balanceOnUnspentCouponsRTRX = couponInfo.balance_on_coupons_rtrx;
+                    let balanceTFN = couponInfo.balance_rtrx;
+                    let balanceTFU = couponInfo.balance_rusdt;
+                    let balanceOnUnspentCouponsTFN = couponInfo.balance_on_coupons_rtrx;
                     console.log("couponCode = ",couponCode);
-                    console.log("balanceRTRX = ",balanceRTRX);
-                    console.log("balanceRUSDT = ",balanceRUSDT);
-                    console.log("balanceOnUnspentCouponsRTRX = ",balanceOnUnspentCouponsRTRX);
+                    console.log("balanceTFN = ",balanceTFN);
+                    console.log("balanceTFU = ",balanceTFU);
+                    console.log("balanceOnUnspentCouponsTFN = ",balanceOnUnspentCouponsTFN);
                 }
             
                 //read coupon data
@@ -572,6 +578,7 @@ async function broadcastTransaction(tronWeb, signedTransaction, waitUntilConfirm
     }
     //check Transatron data: 
     let ttCode = broadcastResult.transatron?.code;//Transatron transaction processing code
+    console.log(`Transaction ${signedTransaction.txID} broadcasted. Transatron code: ${ttCode}`)
     if("PENDING" === ttCode){
         console.log("Delayed transaction sent. Please check txHash = ",broadcastResult.txid," later on!");
         return;

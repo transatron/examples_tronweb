@@ -24,7 +24,9 @@
     "sendtx:privax": "cross-env NODE_ENV=stagePrivax node -r dotenv/config src/sendingTransactions.js",
     "account:0xpay": "cross-env NODE_ENV=stage0xpay node -r dotenv/config src/accountDeposits.js",
     "sendtx:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/sendingTransactions.js",
-    "account:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/accountDeposits.js"
+    "account:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/accountDeposits.js",
+    "sendtx:prod": "cross-env NODE_ENV=prodhetzn node -r dotenv/config src/sendingTransactions.js",
+    "account:prod": "cross-env NODE_ENV=prodhetzn node -r dotenv/config src/accountDeposits.js"
   }
 
 }
