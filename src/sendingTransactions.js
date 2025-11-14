@@ -58,7 +58,7 @@ function format(numberUSDTorTRX){
         //set to true for a company (Entity) account with separate deposit/accounting address.
         //leave value as false for individual (sender address) account
         const areYouACompany = true;
-        const runningTxType = TxType.DELAYED_TRANSACTION; 
+        const runningTxType = TxType.ACCOUNT_PAYMENT; 
         const delayedTransactionIncreaseExpirationBy = 6; //min
         const TRC20ContractAddress = Token.USDT; //token to send
         const numberOfUSDTTransactions = 1; //applied for ACCOUNT_PAYMENT or DELAYED_TRANSACTIONS 
@@ -155,7 +155,6 @@ function format(numberUSDTorTRX){
             
         }
 
-        
 
               
         if (runningTxType === TxType.TRX_TRANSACTION) {
