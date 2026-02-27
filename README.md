@@ -37,9 +37,155 @@ npm run <script-name>:prod    # uses .env.prod
 
 ---
 
-## Sending Transactions
+## Business-Case Examples
 
-Located in `src/examples/sending_tx/`. These scripts demonstrate the full lifecycle of sending TRX and TRC20 tokens through TransaTron using different fee payment modes. See the [Sending Transactions](https://docs.transatron.io/integration_guidelines/sending-transactions/SendingTransaction) integration guide for the general flow.
+These scripts demonstrate real-world TransaTron integration patterns. Each combines multiple API calls into a complete business flow. Located directly in `src/examples/`.
+
+### hot-wallet-withdrawals
+
+**Business case:** Hot wallet processes a batch of USDT withdrawals to different wallets.
+
+A hardcoded `WITHDRAWALS` array defines recipient addresses and amounts. The script loops through each withdrawal using the account-payment flow (estimate → simulate → build → sign → broadcast), then prints a summary report with txIDs and statuses.
+
+```bash
+npm run hot-wallet-withdrawals:stage
+npm run hot-wallet-withdrawals:prod
+```
+
+|              |                                                                        |
+| ------------ | ---------------------------------------------------------------------- |
+| **API key**  | Spender                                                                |
+| **Fee mode** | Account payment (TFN/TFU balance)                                      |
+| **Flow**     | Loop: estimate → simulate → build → sign → broadcast → summary report |
+
+**Steps:**
+1. Define withdrawal batch (address + amount pairs)
+2. Create spender TronWeb, print sender address
+3. For each withdrawal: `estimateFeeLimit()` → `simulateTransaction()` → `buildLocalTransaction()` → sign → `broadcastTransaction()`
+4. Print summary table: address, amount, txID, status
+
+---
+
+### hot-wallet-deposits
+
+**Business case:** Merchant deposit flow — user pays USDT to a merchant wallet, merchant sweeps to the hot wallet.
+
+Simulates the full cycle: generates a temporary merchant wallet, sends USDT from the hot wallet (simulating a user deposit), then sweeps from the merchant wallet to the target address. Both steps use account-payment mode.
+
+```bash
+npm run hot-wallet-deposits:stage
+npm run hot-wallet-deposits:prod
+```
+
+|              |                                                             |
+| ------------ | ----------------------------------------------------------- |
+| **API key**  | Spender (both hot wallet and merchant wallet)               |
+| **Fee mode** | Account payment (TFN/TFU balance)                           |
+| **Flow**     | Generate temp wallet → deposit to it → sweep to hot wallet  |
+
+**Steps:**
+1. Create spender TronWeb (hot wallet)
+2. Generate temporary merchant wallet via `TronWeb.createAccount()`
+3. **User deposit:** Send USDT from hot wallet to temp wallet (account-payment flow)
+4. **Merchant sweep:** Create new TronWeb with temp wallet's private key + spender API key, send USDT from temp wallet to `TARGET_ADDRESS`
+
+---
+
+### non-custodial-bulk-usdt
+
+**Business case:** Read recipients and amounts from a CSV file, send delayed transactions in batch, flush the queue, and verify all on-chain.
+
+Reads `non-custodial-bulk-usdt-recipients.csv` (address,amount per line), broadcasts each as a delayed transaction with bumped expiration, flushes the TransaTron queue, polls until processed, then verifies each transaction on-chain with a final report.
+
+```bash
+npm run non-custodial-bulk-usdt:stage
+npm run non-custodial-bulk-usdt:prod
+```
+
+|              |                                                                                                     |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| **API key**  | Spender                                                                                             |
+| **Fee mode** | Delayed transaction (batch queue)                                                                   |
+| **Flow**     | Read CSV → loop: build + bump expiration + sign(4 args) + broadcast → flush → poll → verify report  |
+
+**Steps:**
+1. Parse CSV file into recipient list
+2. For each recipient: estimate → simulate → build → bump expiration → regenerate txID → sign(4 args) → broadcast (no wait)
+3. After loop: check pending count
+4. Flush via `flushPendingTxs()`, poll until all processed
+5. Verify each txID via `getTransactionInfo()` — print report table
+
+**CSV format** (`non-custodial-bulk-usdt-recipients.csv`):
+```
+address,amount
+TZ8qsoNskwBayBncMgxLvbkFdotH9fC22Q,5000
+TZ8qsoNskwBayBncMgxLvbkFdotH9fC22Q,6000
+TZ8qsoNskwBayBncMgxLvbkFdotH9fC22Q,7000
+```
+
+---
+
+### non-custodial-cashback
+
+**Business case:** Non-custodial wallet earns cashback on user USDT transfers by setting a custom (higher) energy price on the non-spender API key in the TransaTron dashboard. The difference between user-paid price and actual cost = cashback.
+
+Sends an instant payment (TRX or USDT fee mode), checks TFN/TFU balance before and after via the spender key, and shows the delta as cashback earned.
+
+```bash
+npm run non-custodial-cashback:stage
+npm run non-custodial-cashback:prod
+```
+
+|                  |                                                                 |
+| ---------------- | --------------------------------------------------------------- |
+| **API keys**     | Spender (balance/orders) + Non-spender (transaction)            |
+| **Fee mode**     | Instant payment (configurable: TRX or USDT)                    |
+| **Configurable** | `FEE_MODE` (`'TRX'` or `'USDT'`)                               |
+
+**Steps:**
+1. Check TFN/TFU balance before (spender: `getAccountingConfig()`)
+2. Estimate + simulate via non-spender, get fee quote
+3. Get `deposit_address` from `getTransatronNodeInfo()` (non-spender can't query `/api/v1/config`)
+4. If TRX mode: build TRX fee tx via `sendTrx()` → broadcast fee → broadcast main
+5. If USDT mode: build USDT fee tx via `_triggerSmartContractLocal()` → broadcast fee → broadcast main
+6. Check TFN/TFU balance after — show delta (cashback)
+7. Query last order via `getOrders()`
+
+**Prerequisite:** Non-spender API key must have a custom energy price configured in the TransaTron dashboard (higher than default).
+
+---
+
+### non-custodial-coupon
+
+**Business case:** Wallet lets users pay for USDT transactions via card or bonus points. Company creates a coupon to cover the blockchain fee, user redeems it when broadcasting. Unused coupon balance is returned to the company.
+
+```bash
+npm run non-custodial-coupon:stage
+npm run non-custodial-coupon:prod
+```
+
+|              |                                                                     |
+| ------------ | ------------------------------------------------------------------- |
+| **API keys** | Spender (coupon creation, verification, accounting) + Non-spender (user broadcast) |
+| **Fee mode** | Coupon payment                                                      |
+| **Flow**     | Create coupon → [charge user] → build + attach coupon → broadcast → verify |
+
+**Steps:**
+1. **Company:** Estimate fee (spender: `estimateFeeLimit()` + `simulateTransaction()`)
+2. **Company:** Create coupon with `rtrx_limit: 0` (spender: `createCoupon()`)
+3. *"In production, company charges user via card/bonus points here"*
+4. **User:** Build transaction, sign, attach `signedTx.coupon = couponId`, broadcast (non-spender)
+5. **Company:** Verify coupon spent (spender: `getCoupon()`) — show TRX spent, remaining returned
+6. **Company:** Check account (spender: `getAccountingConfig()`) — show TFN/TFU balances
+
+---
+
+## Technical Reference Examples
+
+<details>
+<summary>Sending Transactions (src/examples/sending_tx/)</summary>
+
+These scripts demonstrate the full lifecycle of sending TRX and TRC20 tokens through TransaTron using different fee payment modes. See the [Sending Transactions](https://docs.transatron.io/integration_guidelines/sending-transactions/SendingTransaction) integration guide for the general flow.
 
 ### How TRC20 Sends Work
 
@@ -149,11 +295,12 @@ npm run estimate-fee:stage
 npm run estimate-fee:prod
 ```
 
----
+</details>
 
-## Accounting & Management
+<details>
+<summary>Accounting & Management (src/examples/accounting/)</summary>
 
-Located in `src/examples/accounting/`. These scripts handle account top-ups, balance checks, coupon lifecycle, and order queries via the TransaTron Extended API. See [Accounts & Balances](https://docs.transatron.io/integration_guidelines/accounts-balances) for an overview of TFN/TFU tokens and deposit flows.
+These scripts handle account top-ups, balance checks, coupon lifecycle, and order queries via the TransaTron Extended API. See [Accounts & Balances](https://docs.transatron.io/integration_guidelines/accounts-balances) for an overview of TFN/TFU tokens and deposit flows.
 
 ### check-balances
 
@@ -209,6 +356,8 @@ npm run check-tx:stage -- <txID>
 npm run check-tx:prod -- <txID>
 ```
 
+</details>
+
 ---
 
 ## Project Structure
@@ -232,6 +381,12 @@ src/
     format.ts           # Formatting utilities (hexToUnicode, formatSun)
     sleep.ts            # Promise-based delay
   examples/
+    hot-wallet-withdrawals.ts         # Batch USDT withdrawals (account payment)
+    hot-wallet-deposits.ts            # Merchant deposit + sweep flow
+    non-custodial-bulk-usdt-payments.ts  # CSV-based delayed batch payments
+    non-custodial-bulk-usdt-recipients.csv  # Sample CSV for bulk payments
+    non-custodial-cashback.ts         # Cashback via instant payment pricing delta
+    non-custodial-coupon-payment.ts   # Coupon-based card/bonus payment
     sending_tx/         # Transaction sending examples (all fee payment modes)
     accounting/         # Account management, deposits, coupons, queries
 ```
