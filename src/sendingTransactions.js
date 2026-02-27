@@ -50,6 +50,19 @@ function format(numberUSDTorTRX){
     return (numberUSDTorTRX*0.000001).toFixed(2);
 }
 
+/**
+ * Get current wallet balance in TRX from tronweb object
+ * @param {TronWeb} tronWeb - The TronWeb instance
+ * @param {string} address - The wallet address (optional, defaults to tronWeb.defaultAddress.base58)
+ * @returns {Promise<number>} Balance in TRX
+ */
+async function getTRXBalance(tronWeb, address = null) {
+    const walletAddress = address || tronWeb.defaultAddress.base58;
+    const balanceInSun = await tronWeb.trx.getBalance(walletAddress);
+    const balanceInTRX = balanceInSun / 1_000_000;
+    return balanceInTRX;
+}
+
 (async () => {
     try {
 
@@ -60,18 +73,33 @@ function format(numberUSDTorTRX){
         const areYouACompany = true;
         const runningTxType = TxType.ACCOUNT_PAYMENT; 
         const delayedTransactionIncreaseExpirationBy = 6; //min
-        const TRC20ContractAddress = Token.USDT; //token to send
+        const TRC20ContractAddress = Token.USDC; //token to send
         const numberOfUSDTTransactions = 1; //applied for ACCOUNT_PAYMENT or DELAYED_TRANSACTIONS 
-        const transactionInterval = 100;//ms
+        const transactionInterval = 2000;//ms
         const exactTransferAmount = 0; //set to 0 to make test script generate low random transfer amount. 
+        const doEstimateOnly_DonTSendTx = false; // set to false to send transactions
+        const useRandomTargetAddress = false; // set true to generate a random Tron address as receiver and log TARGET PK + Exact transfer Amount at the end
         //********************************* END OF TEST CONFIGURATION  *****************************/
         //********************************* CHECK THIS SETTINGS HERE *****************************
 
          //this statement results in Transatron charging all transactions broadcasted with Spender API key from related company account.
-        let tronWeb = areYouACompany ? tronWebSpender:tronWebNonSpender;
+        let tronWeb = areYouACompany? tronWebSpender:tronWebNonSpender;
+        //switch to non-spender for testing instant payments.
+        if(runningTxType === TxType.INSTANT_PAYMENT_TRX || runningTxType === TxType.INSTANT_PAYMENT_USDT ){
+            tronWeb = tronWebNonSpender;
+            console.log("force using TronWeb with non-spender key for transaction type: ", runningTxType);
+        }   
         const accountingAddress = areYouACompany?process.env.COMPANY_ACCOUNTING_ADDRESS:tronWeb.defaultAddress.base58;
 
-        let targetAddress = process.env.RECEIVER_WALLET_ADDRESS; 
+        let targetPrivateKey = null;
+        let totalTransferredToTarget = 0;
+        let targetAddress = process.env.RECEIVER_WALLET_ADDRESS;
+        if (useRandomTargetAddress) {
+            const newAccount = await tronWeb.createAccount();
+            targetAddress = newAccount.address.base58;
+            targetPrivateKey = newAccount.privateKey;
+            console.log("Using random target address:", targetAddress);
+        }
         const senderAddress = tronWeb.defaultAddress.base58;
         console.log("******************************* SENDER WALLET INFO ****************************");
         console.log("senderAddress = ",senderAddress);
@@ -94,6 +122,7 @@ function format(numberUSDTorTRX){
         let transatronDepositAddress = "";
         let transatronMinUSDTDeposit = 0;
         let transatronMinNativeTRXDeposit = 0;
+        let trxPrice = 1;
 
         let RTRXInstance;
         let RUSDTInstance;
@@ -137,11 +166,13 @@ function format(numberUSDTorTRX){
                     transatronTronTFUContractAddress = nodeInfo.transatronInfo.rusdt_token_address;
                     transatronMinUSDTDeposit = nodeInfo.transatronInfo.rusdt_min_deposit;
                     transatronMinNativeTRXDeposit = nodeInfo.transatronInfo.rtrx_min_deposit;
+                    trxPrice = nodeInfo.transatronInfo.trx_price;
                     console.log("transatronDepositAddress = ", transatronDepositAddress);
                     console.log("transatronTronTFNContractAddress = ", transatronTronTFNContractAddress);
                     console.log("transatronTronTFUContractAddress = ", transatronTronTFUContractAddress);
                     console.log("transatronMinUSDTDeposit = ", transatronMinUSDTDeposit);
                     console.log("transatronMinTRXDeposit = ", transatronMinNativeTRXDeposit);
+                    console.log("trxPrice = ", trxPrice);
 
                     RTRXInstance = await tronWeb.contract().at(transatronTronTFNContractAddress);
                     RUSDTInstance = await tronWeb.contract().at(transatronTronTFUContractAddress);
@@ -176,13 +207,16 @@ function format(numberUSDTorTRX){
             await broadcastTransaction(tronWeb, signedTransaction, true);
 
             return;
+        } else {
+            let trxBalance = await getTRXBalance(tronWeb,senderAddress);
+            console.log('Current trxBalance on sender:',trxBalance);
         }
         
         //broadcast TRC20 transactions
         let numberOfTx = (runningTxType == TxType.ACCOUNT_PAYMENT || runningTxType == TxType.DELAYED_TRANSACTION )? numberOfUSDTTransactions : 1;
         for(let i=0;i<numberOfTx;i++){
             console.log("************* Sending TRC20 Transaction ",(i+1)," *****************");
-            if(process.env.RECEIVER_WALLETS !=null && numberOfUSDTTransactions >1 ){
+            if(!useRandomTargetAddress && process.env.RECEIVER_WALLETS != null && numberOfUSDTTransactions > 1){
                 const array = JSON.parse(process.env.RECEIVER_WALLETS);
                 let index = i%array.length;
                 console.log("index ",index);
@@ -191,6 +225,9 @@ function format(numberUSDTorTRX){
             }
 
             let transferAmount = exactTransferAmount>0?exactTransferAmount:(Math.floor(Math.random() * (15000 - 5000 + 1)) + 5000); // Random amount between 5000 and 15000
+            if (useRandomTargetAddress) {
+                totalTransferredToTarget += transferAmount;
+            }
             console.log("transferAmount = ",transferAmount);
             let _ownerHexAddress = tronWeb.address.toHex(senderAddress);
             let _USDTContractHexAddress = tronWeb.address.toHex(Token.USDT);
@@ -209,7 +246,7 @@ function format(numberUSDTorTRX){
                 * 3) if not activated, assume max energy spending for USDT transfer, which is 132000 energy currently.
                 */
             try{
-                if(true){
+                if(false){
                     let tccResponse = await tronWeb.transactionBuilder.triggerConstantContract(_TRC20ContractHexAddress, _callFunction, {}, _callParameters, _ownerHexAddress);
 
                     let energy_used = tccResponse.energy_used;
@@ -228,6 +265,7 @@ function format(numberUSDTorTRX){
             console.log("*************  2) estimate transaction result and Transatron fees, show to user if required. *****************");
             var options = {
                 feeLimit: _feeLimit,
+                // callValue: 10000000,
                 callValue: 0,
                 txLocal: true
             };
@@ -243,14 +281,18 @@ function format(numberUSDTorTRX){
                 options.callValue,
                 options.feeLimit
             );
-
+            console.log('args = ',args);
             pathInfo = "wallet/triggersmartcontract";
             const transactionWrap = await tronWeb['fullNode'].request(
                 pathInfo,
                 args,
                 'post'
             );
-
+            
+            if(doEstimateOnly_DonTSendTx){
+                console.log("/triggersmartcontract result = ",transactionWrap);
+                return;
+            }
             //check Transatron data: 
             let ttCode = transactionWrap.transatron.code;
             let tx_fee_tfn_account = transactionWrap.transatron.tx_fee_rtrx_account;//transaction fee in Transatron RTRX token from internal account.
@@ -268,6 +310,8 @@ function format(numberUSDTorTRX){
             console.log("In case of paying with instant payment, the transaction fee would be ",format(tx_fee_tfn_instant)," TRX or ",format(tx_fee_tfu_instant)," USDT");
             console.log("In case TRX will be burned for transaction, the fee would be: ",format(tx_fee_burn_trx)," TRX");
             console.log("Current balance is: ",format(user_account_balance_tfn), " TFN (former RTRX) and ",format(user_account_balance_tfu)," TFU (former RUSDT)");
+            let sunPerUnitEnergy = tx_fee_tfn_account > 0 ? (1.0 * tx_fee_tfn_account / _feeLimit * energyFee):(1.0 * tx_fee_tfu_account / trxPrice / _feeLimit * energyFee);
+            console.log('Energy price from account: ',sunPerUnitEnergy," sun/unit ",tx_fee_tfn_account," m ",energyFee);
 
             //calculate bandwidth required:
             let bandwidthRequired = transactionWrap.transaction.raw_data_hex.length / 2 //raw data size in bytes
@@ -534,10 +578,19 @@ function format(numberUSDTorTRX){
                 k+=verificationInterval;
             } while((pendingInfoAfterFlush.pending_transactions_amount > 0 || pendingInfoAfterFlush.processing_transactions_amount > 0) && k < verificationTimeout);
             
-            console.log("Transactions processed!")
-
+            console.log("Transactions processed!");
+            if (useRandomTargetAddress && targetPrivateKey != null) {
+                console.log("TARGET PK = " + targetPrivateKey);
+                const exactAmountFormatted = totalTransferredToTarget;
+                console.log("Exact transfer Amount = " + exactAmountFormatted);
+            }
             return;
-        } 
+        }
+        if (useRandomTargetAddress && targetPrivateKey != null) {
+            console.log("TARGET PK = " + targetPrivateKey);
+            const exactAmountFormatted = totalTransferredToTarget;
+            console.log("Exact transfer Amount = " + exactAmountFormatted);
+        }
         console.log(`Completed. ${numberOfTx} transactions sent.`);
 
     } catch (error) {

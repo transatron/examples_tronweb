@@ -12,21 +12,23 @@
     "tronweb": "6.0.4"
   },
   "scripts": {
-    "consolidate:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendAndConsolidate.js",
+    "consolidate:local": "cross-env NODE_ENV=development node -r dotenv/config src/sendAndConsolidate.js",
     "consolidate:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendAndConsolidate.js",
-    "sendtx:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendingTransactions.js",
+    "sendtx:local": "cross-env NODE_ENV=development node -r dotenv/config src/sendingTransactions.js",
     "sendtx:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendingTransactions.js",
-    "account:dev": "cross-env NODE_ENV=development node -r dotenv/config src/accountDeposits.js",
+    "account:local": "cross-env NODE_ENV=development node -r dotenv/config src/accountDeposits.js",
     "account:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/accountDeposits.js",
     "bulkorder:dev": "cross-env NODE_ENV=development node -r dotenv/config src/sendingBulkOrders.js",
     "bulkorder:stage": "cross-env NODE_ENV=stage node -r dotenv/config src/sendingBulkOrders.js",
     "sendtx:0xpay": "cross-env NODE_ENV=stage0xpay node -r dotenv/config src/sendingTransactions.js",
     "sendtx:privax": "cross-env NODE_ENV=stagePrivax node -r dotenv/config src/sendingTransactions.js",
     "account:0xpay": "cross-env NODE_ENV=stage0xpay node -r dotenv/config src/accountDeposits.js",
-    "sendtx:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/sendingTransactions.js",
-    "account:hetz": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/accountDeposits.js",
+    "sendtx:devx": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/sendingTransactions.js",
+    "account:devx": "cross-env NODE_ENV=devhetzn node -r dotenv/config src/accountDeposits.js",
     "sendtx:prod": "cross-env NODE_ENV=prodhetzn node -r dotenv/config src/sendingTransactions.js",
-    "account:prod": "cross-env NODE_ENV=prodhetzn node -r dotenv/config src/accountDeposits.js"
+    "account:prod": "cross-env NODE_ENV=prodhetzn node -r dotenv/config src/accountDeposits.js",
+    "account:ctest": "cross-env NODE_ENV=prodcustomertest node -r dotenv/config src/accountDeposits.js",
+    "sendtx:ctest": "cross-env NODE_ENV=prodcustomertest node -r dotenv/config src/sendingTransactions.js"
   }
 
 }
