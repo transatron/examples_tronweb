@@ -180,6 +180,59 @@ npm run non-custodial-coupon:prod
 
 ---
 
+### replenish-trx
+
+**Business case:** Automated TFN balance monitor — checks if the TransaTron TFN (TRX-backed) balance has dropped below a threshold, and deposits TRX to top it up. Prevents unexpected fee spikes when the balance hits 0 and bypass mode kicks in (transactions go through TRON directly at much higher cost).
+
+```bash
+npm run replenish-trx:stage
+npm run replenish-trx:prod
+```
+
+|                  |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| **API key**      | Spender                                                      |
+| **Fee mode**     | Account payment (TFN balance)                                |
+| **Configurable** | `THRESHOLD_SUN` (balance threshold), `TOP_UP_SUN` (deposit amount) |
+
+**Steps:**
+1. Create spender TronWeb, print threshold and top-up config
+2. `getAccountingConfig()` — check `balance_rtrx`
+3. If balance >= threshold, log "no replenishment needed" and exit
+4. Get `payment_address` from config, `rtrx_min_deposit` from `getTransatronNodeInfo()`
+5. `depositAmount = Math.max(TOP_UP_SUN, rtrx_min_deposit)` — guard against too-small deposits
+6. Check wallet TRX balance, send TRX to deposit address
+7. Wait 10s, re-query config, print before/after/delta
+
+---
+
+### replenish-usdt
+
+**Business case:** Automated TFU balance monitor — checks if the TransaTron TFU (USDT-backed) balance has dropped below a threshold, and deposits USDT to top it up. Same rationale as replenish-trx but for USDT-denominated fees.
+
+```bash
+npm run replenish-usdt:stage
+npm run replenish-usdt:prod
+```
+
+|                  |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| **API key**      | Spender                                                      |
+| **Fee mode**     | Account payment (TFU balance)                                |
+| **Configurable** | `THRESHOLD_USDT` (balance threshold), `TOP_UP_USDT` (deposit amount) |
+
+**Steps:**
+1. Create spender TronWeb, print threshold and top-up config
+2. `getAccountingConfig()` — check `balance_rusdt`
+3. If balance >= threshold, log "no replenishment needed" and exit
+4. Get `payment_address` from config, `rusdt_min_deposit` from `getTransatronNodeInfo()`
+5. `depositAmount = Math.max(TOP_UP_USDT, rusdt_min_deposit)` — guard against too-small deposits
+6. Check wallet USDT balance via `contract().at(TOKENS.USDT).balanceOf()`
+7. `estimateFeeLimit()` → `buildLocalTransaction()` → sign → broadcast
+8. Wait 10s, re-query config, print before/after/delta
+
+---
+
 ## Technical Reference Examples
 
 <details>
@@ -387,6 +440,8 @@ src/
     non-custodial-bulk-usdt-recipients.csv  # Sample CSV for bulk payments
     non-custodial-cashback.ts         # Cashback via instant payment pricing delta
     non-custodial-coupon-payment.ts   # Coupon-based card/bonus payment
+    replenish-trx.ts                  # Automated TFN balance replenisher
+    replenish-usdt.ts                 # Automated TFU balance replenisher
     sending_tx/         # Transaction sending examples (all fee payment modes)
     accounting/         # Account management, deposits, coupons, queries
 ```
