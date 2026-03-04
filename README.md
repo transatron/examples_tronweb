@@ -180,6 +180,34 @@ npm run non-custodial-coupon:prod
 
 ---
 
+### agentic_register
+
+**Business case:** Fully automated onboarding — programmatically register a new TransaTron account via `POST /api/v1/register`. Builds a signed TRX deposit transaction on a public TronGrid node (no API key needed), submits it with an email to TransaTron, and prints the returned credentials in `.env`-ready format.
+
+```bash
+npm run register:stage
+npm run register:stage -- user@company.com   # override email via CLI arg
+npm run register:prod
+```
+
+|                  |                                                                |
+| ---------------- | -------------------------------------------------------------- |
+| **API key**      | None (unauthenticated — registration creates the keys)         |
+| **Fee mode**     | N/A (deposit transaction)                                      |
+| **Configurable** | `REGISTRATION_DEPOSIT_ADDRESS`, `REGISTRATION_DEPOSIT_AMOUNT_TRX`, `REGISTRATION_EMAIL` (via `.env`) |
+
+**Steps:**
+1. Create a public TronGrid TronWeb instance (for building/signing) and an unauthenticated TransaTron instance (for the `/register` call)
+2. Resolve deposit address, amount, and email from env vars or defaults
+3. Build and sign a TRX transfer to the deposit address (do **not** broadcast)
+4. Call `POST /api/v1/register` with the signed transaction and email
+5. Print account details (deposit address, balances, pricing)
+6. Print credentials in `.env` format: `TRANSATRON_API_KEY_SPENDER`, `TRANSATRON_API_KEY_NON_SPENDER`, `TRANSATRON_USER_EMAIL`, `TRANSATRON_USER_PASSWORD`
+
+**Important:** Credentials are only returned once during registration — store them immediately.
+
+---
+
 ### replenish-trx
 
 **Business case:** Automated TFN balance monitor — checks if the TransaTron TFN (TRX-backed) balance has dropped below a threshold, and deposits TRX to top it up. Prevents unexpected fee spikes when the balance hits 0 and bypass mode kicks in (transactions go through TRON directly at much higher cost).
@@ -440,6 +468,7 @@ src/
     non-custodial-bulk-usdt-recipients.csv  # Sample CSV for bulk payments
     non-custodial-cashback.ts         # Cashback via instant payment pricing delta
     non-custodial-coupon-payment.ts   # Coupon-based card/bonus payment
+    agentic_register.ts               # Programmatic account registration
     replenish-trx.ts                  # Automated TFN balance replenisher
     replenish-usdt.ts                 # Automated TFU balance replenisher
     sending_tx/         # Transaction sending examples (all fee payment modes)
