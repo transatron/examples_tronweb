@@ -3,8 +3,9 @@
  * Uses non-spender API key (read-only operations).
  */
 import { TOKENS } from '../../config/tokens.js';
-import { createNonSpenderTronWeb } from '../../lib/tronweb-factory.js';
+import { createNonSpenderTronWeb, createSpenderTronWeb } from '../../lib/tronweb-factory.js';
 import { getChainParams, getTransatronNodeInfo } from '../../lib/chain-info.js';
+import { getAccountingConfig } from '../../lib/transatron-api.js';
 
 (async () => {
   try {
@@ -59,6 +60,17 @@ import { getChainParams, getTransatronNodeInfo } from '../../lib/chain-info.js';
       console.log('TFU Balance:', tfuBalance.toString());
     } else {
       console.log('TransaTron node info not available');
+    }
+
+    // Account config (requires spender key)
+    const spenderTronWeb = createSpenderTronWeb();
+    const accountConfig = await getAccountingConfig(spenderTronWeb);
+    const notices = accountConfig.notice as string[] | undefined;
+    if (notices && notices.length > 0) {
+      console.log('--- Account Notices ---');
+      for (const notice of notices) {
+        console.log(notice);
+      }
     }
 
     console.log('Done.');
