@@ -22,3 +22,11 @@ export function createNonSpenderTronWeb(): TronWeb {
     },
   });
 }
+
+export function createUnauthenticatedTronWeb(): TronWeb {
+  return new TronWeb({
+    fullHost: config.API,
+    eventServer: config.API,
+    privateKey: config.PRIVATE_KEY,
+  });
+}

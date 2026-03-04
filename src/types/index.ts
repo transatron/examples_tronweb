@@ -17,4 +17,4 @@ export type {
   CouponGetResponse,
 } from './coupon.js';
 
-export type { AccountingConfig, OrdersResponse } from './accounting.js';
+export type { AccountingConfig, OrdersResponse, RegisterResponse } from './accounting.js';

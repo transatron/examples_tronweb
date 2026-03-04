@@ -1,4 +1,4 @@
-import type { TronWeb } from 'tronweb';
+import type { TronWeb, Types } from 'tronweb';
 import type {
   CouponCreateRequest,
   CouponCreateResponse,
@@ -6,6 +6,7 @@ import type {
   AccountingConfig,
   OrdersResponse,
   PendingTxsInfo,
+  RegisterResponse,
 } from '../types/index.js';
 
 /** Create a coupon (requires spender API key). */
@@ -50,4 +51,17 @@ export async function getAccountingConfig(tronWeb: TronWeb): Promise<AccountingC
 /** Get orders from TransaTron API. */
 export async function getOrders(tronWeb: TronWeb): Promise<OrdersResponse> {
   return tronWeb.fullNode.request<OrdersResponse>('api/v1/orders', {}, 'get');
+}
+
+/** Register a new account with a signed TRX deposit transaction. */
+export async function register(
+  tronWeb: TronWeb,
+  transaction: Types.SignedTransaction,
+  email: string,
+): Promise<RegisterResponse> {
+  return tronWeb.fullNode.request<RegisterResponse>(
+    'api/v1/register',
+    { transaction, email },
+    'post',
+  );
 }
