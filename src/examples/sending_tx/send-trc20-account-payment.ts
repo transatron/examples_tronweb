@@ -11,9 +11,9 @@ import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '..
 import { broadcastTransaction } from '../../lib/broadcast.js';
 import { sleep } from '../../lib/sleep.js';
 
-const TOKEN = TOKENS.USDC;
+const TOKEN = TOKENS.USDT;
 const NUMBER_OF_TRANSACTIONS = 1;
-const TRANSACTION_INTERVAL_MS = 2000;
+const TRANSACTION_INTERVAL_MS = 1000;
 
 (async () => {
   try {

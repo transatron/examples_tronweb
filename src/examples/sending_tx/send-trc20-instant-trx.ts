@@ -11,7 +11,7 @@ import { getTransatronNodeInfo } from '../../lib/chain-info.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../../lib/trc20.js';
 import { broadcastTransaction } from '../../lib/broadcast.js';
 
-const TOKEN = TOKENS.USDC;
+const TOKEN = TOKENS.USDT;
 
 (async () => {
   try {

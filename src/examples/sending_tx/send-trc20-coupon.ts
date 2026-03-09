@@ -11,7 +11,7 @@ import { createCoupon, getCoupon } from '../../lib/transatron-api.js';
 import { broadcastTransaction } from '../../lib/broadcast.js';
 import type { SignedTransactionWithCoupon } from '../../types/index.js';
 
-const TOKEN = TOKENS.USDC;
+const TOKEN = TOKENS.USDT;
 
 (async () => {
   try {
