@@ -1,6 +1,8 @@
 /**
  * Check balances — TRX, TRC20, chain params, node info, TFN/TFU balances.
- * Uses non-spender API key (read-only operations).
+ * Shows two types of TFN/TFU balances:
+ *   - Direct address balance: on-chain token balance at the wallet address (non-spender key)
+ *   - Account balance: TransaTron account-level balance (spender key, via /api/v1/config)
  */
 import { TOKENS } from '../../config/tokens.js';
 import { createNonSpenderTronWeb, createSpenderTronWeb } from '../../lib/tronweb-factory.js';
@@ -45,19 +47,20 @@ import { getAccountingConfig } from '../../lib/transatron-api.js';
     if (nodeInfo) {
       console.log('--- TransaTron Info ---');
       console.log('Deposit address:', nodeInfo.deposit_address);
-      console.log('TFN token:', nodeInfo.rtrx_token_address);
-      console.log('TFU token:', nodeInfo.rusdt_token_address);
-      console.log('Min USDT deposit:', nodeInfo.rusdt_min_deposit);
-      console.log('Min TRX deposit:', nodeInfo.rtrx_min_deposit);
+      console.log('TFN (internal TRX) token:', nodeInfo.rtrx_token_address);
+      console.log('TFU (internal USDT) token:', nodeInfo.rusdt_token_address);
+      console.log('Min TFU deposit:', nodeInfo.rusdt_min_deposit / 1_000_000);
+      console.log('Min TFN deposit:', nodeInfo.rtrx_min_deposit / 1_000_000);
       console.log('TRX price:', nodeInfo.trx_price);
 
-      // TFN/TFU balances
+      // Direct address balance — on-chain TFN/TFU tokens held at the wallet address (non-spender key)
       const tfnContract = await tronWeb.contract().at(nodeInfo.rtrx_token_address);
       const tfuContract = await tronWeb.contract().at(nodeInfo.rusdt_token_address);
       const tfnBalance = await tfnContract.methods.balanceOf(senderAddress).call();
       const tfuBalance = await tfuContract.methods.balanceOf(senderAddress).call();
-      console.log('TFN Balance:', tfnBalance.toString());
-      console.log('TFU Balance:', tfuBalance.toString());
+      console.log('--- Direct Address Balance (non-spender key) ---');
+      console.log('TFN (internal TRX, address-bound) Balance:', Number(tfnBalance) / 1_000_000);
+      console.log('TFU (internal USDT, address-bound) Balance:', Number(tfuBalance) / 1_000_000);
     } else {
       console.log('TransaTron node info not available');
     }
@@ -65,6 +68,12 @@ import { getAccountingConfig } from '../../lib/transatron-api.js';
     // Account config (requires spender key)
     const spenderTronWeb = createSpenderTronWeb();
     const accountConfig = await getAccountingConfig(spenderTronWeb);
+
+    // Account balance — TransaTron account-level balance from /api/v1/config (spender key)
+    console.log('--- Account Balance (spender key) ---');
+    console.log('TFN (internal TRX, account):', accountConfig.balance_rtrx / 1_000_000);
+    console.log('TFU (internal USDT, account):', accountConfig.balance_rusdt / 1_000_000);
+
     const notices = accountConfig.notice as string[] | undefined;
     if (notices && notices.length > 0) {
       console.log('--- Account Notices ---');
