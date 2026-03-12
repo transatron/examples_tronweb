@@ -19,6 +19,11 @@ TransaTron integration examples for TRON fee payment modes.
 - `broadcastTransaction()` has a 10s initial wait before polling — TransaTron queues need processing time before the tx hits the chain. Don't reduce this or you'll get false "not found" results.
 - Delayed transactions sit in the queue until expiration minus 3 minutes, then are automatically sent for execution. Use `api/v1/pendingtxs/flush` to trigger immediate processing. Expiration must be bumped by more than 1 hour and less than 12 hours practically.
 - When TFN/TFU balance hits 0, behavior depends on the "bypass" setting in TransaTron dashboard (per API key): if bypass=true, transactions go through TRON directly and burn TRX for fees (much more expensive); if bypass=false, an error is returned and the transaction is not broadcasted.
+- SunSwap Smart Exchange Router (`TWH7FMNjaLUfx5XnCzs1wybzA6jV5DXWsG`) uses `swapExactInput` with method ID `cef95229`. The last parameter is a `SwapData` tuple `(uint256,uint256,address,uint256)` encoded **inline** in the ABI head (not behind a dynamic offset). The contract also has an empty-tuple variant (`56dfecda`) that accepts calls but does nothing — do not use it.
+- Swap paths require WTRX (`TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR`) as intermediary. `versionLen` = number of path elements consumed by each pool version (e.g. `[2, 1]` for a 3-token path), not pool version numbers. Fees array has one element per path token (e.g. `[0, 500, 0]` for TRX→WTRX→USDT).
+- The router deployer has staked energy covering ~99% of execution. `triggerConstantContract` shows the full energy, but `origin_energy_usage` in the on-chain receipt shows deployer coverage. The caller pays only a tiny remainder.
+- `trc20.ts` transfer helpers (`estimateFeeLimit`, `simulateTransaction`, `buildLocalTransaction`) are hardcoded to `transfer(address,uint256)`. For approve calls, use the dedicated approve helpers (`estimateApproveFeeLimit`, `simulateApproveTransaction`, `buildLocalApproveTransaction`) — they use `approve(address,uint256)`.
+- TronWeb 6.0.4 `ContractFunctionParameter` doesn't support tuple types, so `swap.ts` manually ABI-encodes parameters and uses raw `data` field for `triggerConstantContract` and `function_selector` + `parameter` for `triggerSmartContract`.
 
 ## Environment
 

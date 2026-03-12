@@ -261,6 +261,36 @@ npm run replenish-usdt:prod
 
 ---
 
+### swap-on-sunswap
+
+**Business case:** Swap tokens (USDT↔TRX) via the [SunSwap Smart Exchange Router](https://github.com/sun-protocol/smart-exchange-router) with TransaTron covering fees. Demonstrates how DeFi contract interactions work with TransaTron — the router's deployer has staked energy covering ~99% of execution costs, so TransaTron only needs to cover bandwidth.
+
+A single configurable script supporting both directions. For focused single-direction examples, see `swap-trx-usdt` and `swap-usdt-trx` below.
+
+```bash
+npm run swap-sunswap:stage
+npm run swap-sunswap:prod
+```
+
+|                  |                                                                |
+| ---------------- | -------------------------------------------------------------- |
+| **API key**      | Spender                                                        |
+| **Fee mode**     | Account payment (TFN/TFU balance)                              |
+| **Configurable** | `DIRECTION` (`'USDT_TO_TRX'` or `'TRX_TO_USDT'`), `AMOUNT`   |
+
+**Steps:**
+1. If USDT→TRX: check USDT allowance, approve router if needed
+2. Estimate energy via `triggerConstantContract` — deployer covers ~99%
+3. Simulate swap with `txLocal: true` — get TransaTron fee quote
+4. Build, sign, broadcast — print TransaTron charges vs estimation
+5. Fetch on-chain receipt — print energy breakdown (deployer vs caller)
+
+**Output includes:**
+- TransaTron fee estimation and actual broadcast charges (TFN/TFU comparison)
+- On-chain energy breakdown: total, deployer-staked (`origin_energy_usage`), caller energy, bandwidth fee
+
+---
+
 ## Technical Reference Examples
 
 <details>
@@ -367,6 +397,36 @@ npm run send-trc20-delayed:prod
 | **Configurable** | `NUMBER_OF_TRANSACTIONS`, `TRANSACTION_INTERVAL_MS`, `EXPIRATION_INCREASE_MIN`                      |
 | **Flow**         | Loop: build → bump expiration → sign(4 args) → broadcast → after loop: flush → poll until processed |
 
+### swap-trx-usdt
+
+Swap TRX → USDT via the SunSwap Smart Exchange Router. No approve step needed since native TRX is sent as `callValue`. Prints TransaTron fee estimation, broadcast charges with TFN/TFU comparison, and on-chain energy breakdown.
+
+```bash
+npm run swap-trx-usdt:stage
+npm run swap-trx-usdt:prod
+```
+
+|              |                                              |
+| ------------ | -------------------------------------------- |
+| **API key**  | Spender                                      |
+| **Fee mode** | Account payment                              |
+| **Flow**     | Estimate energy → simulate → build → sign → broadcast → energy breakdown |
+
+### swap-usdt-trx
+
+Swap USDT → TRX via the SunSwap Smart Exchange Router. Includes a USDT approve step for the router before executing the swap.
+
+```bash
+npm run swap-usdt-trx:stage
+npm run swap-usdt-trx:prod
+```
+
+|              |                                              |
+| ------------ | -------------------------------------------- |
+| **API key**  | Spender                                      |
+| **Fee mode** | Account payment                              |
+| **Flow**     | Approve USDT → estimate energy → simulate → build → sign → broadcast → energy breakdown |
+
 ### estimate-fee
 
 Estimate fees for a TRC20 transfer without sending. Shows energy estimate, all TransaTron fee quotes (account, instant TRX, instant USDT, burn), and current balance. Uses the [`transatron` extension object](https://docs.transatron.io/transatron_node_api/accessing_tron_json_rpc/TransatronExtensionObjects) returned by the simulate call.
@@ -447,7 +507,7 @@ npm run check-tx:prod -- <txID>
 src/
   config/
     env.ts              # Environment loader (.env.stage / .env.prod)
-    tokens.ts           # TRC20 token addresses (USDT, USDC, SUN)
+    tokens.ts           # TRC20 token addresses, contract addresses (USDT, USDC, SUN, SunSwap router)
   types/
     transatron.ts       # TransaTron API response types
     coupon.ts           # Coupon request/response types
@@ -455,7 +515,8 @@ src/
     index.ts            # Barrel export
   lib/
     tronweb-factory.ts  # TronWeb instance creation (spender / non-spender)
-    trc20.ts            # TRC20 helpers (estimateFeeLimit, simulate, build)
+    trc20.ts            # TRC20 helpers (transfer, approve: estimate, simulate, build)
+    swap.ts             # SunSwap swap helpers (ABI encoding, estimate, simulate, build)
     broadcast.ts        # Broadcast with confirmation polling
     chain-info.ts       # Chain parameters and TransaTron node info
     transatron-api.ts   # TransaTron Extended API client (coupons, pending txs, config, orders)
@@ -471,6 +532,7 @@ src/
     agentic_register.ts               # Programmatic account registration
     replenish-trx.ts                  # Automated TFN balance replenisher
     replenish-usdt.ts                 # Automated TFU balance replenisher
+    swap_on_sunswap.ts                # USDT↔TRX swap via SunSwap + TransaTron
     sending_tx/         # Transaction sending examples (all fee payment modes)
     accounting/         # Account management, deposits, coupons, queries
 ```
