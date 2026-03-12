@@ -84,6 +84,11 @@ export async function broadcastTransaction(
         break;
       }
 
+      if (state1 === 'REVERT') {
+        console.log('Error: REVERT, txHash =', signedTransaction.txID);
+        break;
+      }
+
       const receipt = txReceipt2 as { receipt?: { net_usage?: number; net_fee?: number } } | undefined;
       const state2 = isObjectEmpty(txReceipt2)
         ? false

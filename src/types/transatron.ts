@@ -23,6 +23,12 @@ export interface TransatronBroadcastExtra {
   code: string;
   message: string;
   tx_fee_burn_trx: number;
+  tx_fee_rtrx_account?: number;
+  tx_fee_rusdt_account?: number;
+  tx_fee_rtrx_instant?: number;
+  tx_fee_rusdt_instant?: number;
+  user_account_balance_rtrx?: number;
+  user_account_balance_rusdt?: number;
 }
 
 /** Broadcast result with TransaTron extension. */

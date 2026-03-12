@@ -15,7 +15,7 @@ import {
 } from '../../lib/trc20.js';
 import { broadcastTransaction } from '../../lib/broadcast.js';
 
-const TOKEN = TOKENS.USDC;
+const TOKEN = TOKENS.USDT;
 
 (async () => {
   try {
