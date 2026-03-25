@@ -98,8 +98,8 @@ const TRANSACTION_INTERVAL_MS = 2000;
     );
 
     // Wait then flush
-    console.log('Waiting 60s before flushing delayed txs...');
-    await sleep(60_000);
+    console.log('Waiting 10s before flushing delayed txs...');
+    await sleep(10_000);
     console.log('Flushing pending txs...');
     await flushPendingTxs(tronWeb, senderAddress);
 
