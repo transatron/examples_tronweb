@@ -11,12 +11,14 @@ import { TOKENS } from '../../config/tokens.js';
 import { createSpenderTronWeb } from '../../lib/tronweb-factory.js';
 import { formatSun, hexToUnicode, isObjectEmpty } from '../../lib/format.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../../lib/trc20.js';
+import { prepareTransaction } from '../../lib/tx-prepare.js';
 import { broadcastTransaction } from '../../lib/broadcast.js';
 import { sleep } from '../../lib/sleep.js';
+import type { MutableTransaction } from '../../types/index.js';
 
 const TOKEN = TOKENS.USDT;
 const NUMBER_OF_TRANSACTIONS = 5;
-const TRANSACTION_INTERVAL_MS = 800;
+const TRANSACTION_INTERVAL_MS = 2000;
 
 (async () => {
   try {
@@ -81,7 +83,9 @@ const TRANSACTION_INTERVAL_MS = 800;
         feeLimit,
       );
 
-      const signedTx = await tronWeb.trx.sign(localTx.transaction, config.PRIVATE_KEY);
+      // Replace reference block with solidified (fork-proof) block
+      const unsignedTx = await prepareTransaction(tronWeb, localTx.transaction as MutableTransaction);
+      const signedTx = await tronWeb.trx.sign(unsignedTx, config.PRIVATE_KEY);
       txIds.push(signedTx.txID);
 
       // Fire broadcast without awaiting the HTTP response — the 800ms delay

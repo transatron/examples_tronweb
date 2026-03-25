@@ -9,7 +9,9 @@ import { TronWeb } from 'tronweb';
 import { formatSun } from '../lib/format.js';
 import { config } from '../config/env.js';
 import { createUnauthenticatedTronWeb } from '../lib/tronweb-factory.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { register } from '../lib/transatron-api.js';
+import type { MutableTransaction } from '../types/index.js';
 
 const DEFAULT_DEPOSIT_ADDRESS = 'TFPzL92nmSxLVVNHoL5cbZ6tjSxfuKUBeD';
 const DEFAULT_DEPOSIT_AMOUNT_TRX = 30; // 30 TRX
@@ -44,11 +46,13 @@ const DEFAULT_REGISTRATION_EMAIL = 'user@example.com';
 
     // Build and sign TRX transfer (do NOT broadcast)
     console.log('\nBuilding deposit transaction...');
-    const unsignedTx = await publicTronWeb.transactionBuilder.sendTrx(
+    const rawTx = await publicTronWeb.transactionBuilder.sendTrx(
       depositAddress,
       depositAmount,
       senderAddress,
     );
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx = await prepareTransaction(publicTronWeb, rawTx as MutableTransaction);
     const signedTx = await publicTronWeb.trx.sign(unsignedTx);
 
     // Register account

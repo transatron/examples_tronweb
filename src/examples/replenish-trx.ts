@@ -7,8 +7,10 @@ import { formatSun } from '../lib/format.js';
 import { createSpenderTronWeb } from '../lib/tronweb-factory.js';
 import { getTransatronNodeInfo } from '../lib/chain-info.js';
 import { getAccountingConfig } from '../lib/transatron-api.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { broadcastTransaction } from '../lib/broadcast.js';
 import { sleep } from '../lib/sleep.js';
+import type { MutableTransaction } from '../types/index.js';
 
 const THRESHOLD_SUN = 300_000_000; // 300 TRX — replenish when balance drops below this
 const TOP_UP_SUN = 30_000_000; //  30 TRX — amount to deposit
@@ -56,11 +58,13 @@ const TOP_UP_SUN = 30_000_000; //  30 TRX — amount to deposit
     }
 
     // Send TRX to deposit address
-    const unsignedTx = await tronWeb.transactionBuilder.sendTrx(
+    const rawTx = await tronWeb.transactionBuilder.sendTrx(
       depositAddress,
       depositAmount,
       senderAddress,
     );
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx = await prepareTransaction(tronWeb, rawTx as MutableTransaction);
     const signedTx = await tronWeb.trx.sign(unsignedTx);
     await broadcastTransaction(tronWeb, signedTx, { waitForConfirmation: true });
 

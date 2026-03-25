@@ -14,6 +14,7 @@ import { TOKENS } from '../config/tokens.js';
 import { createSpenderTronWeb } from '../lib/tronweb-factory.js';
 import { hexToUnicode } from '../lib/format.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../lib/trc20.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { getPendingTxs, flushPendingTxs } from '../lib/transatron-api.js';
 import { broadcastTransaction } from '../lib/broadcast.js';
 import { sleep } from '../lib/sleep.js';
@@ -84,16 +85,12 @@ function parseCsv(filePath: string): { address: string; amount: number }[] {
       // Build local transaction
       const localTx = await buildLocalTransaction(tronWeb, TOKEN, address, amount, senderAddress, feeLimit);
 
-      // Bump expiration for delayed mode
-      const unsignedTx = JSON.parse(JSON.stringify(localTx.transaction)) as MutableTransaction;
-      unsignedTx.raw_data.expiration += 1000 * 60 * EXPIRATION_INCREASE_MIN;
-
-      // Regenerate txID after modifying raw_data
-      const updatedTx = await tronWeb.transactionBuilder.newTxID(unsignedTx);
-      unsignedTx.txID = updatedTx.txID;
-      unsignedTx.raw_data = updatedTx.raw_data;
-      unsignedTx.raw_data_hex = updatedTx.raw_data_hex;
-      unsignedTx.visible = updatedTx.visible;
+      // Replace reference block with solidified (fork-proof) block and bump expiration
+      const unsignedTx = await prepareTransaction(
+        tronWeb,
+        localTx.transaction as MutableTransaction,
+        { expirationMinutes: EXPIRATION_INCREASE_MIN },
+      );
 
       // Sign with 4 args (required for delayed transactions)
       const signedTx = await tronWeb.trx.sign(unsignedTx, config.PRIVATE_KEY, false, false);

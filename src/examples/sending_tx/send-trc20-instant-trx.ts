@@ -9,7 +9,9 @@ import { createNonSpenderTronWeb } from '../../lib/tronweb-factory.js';
 import { formatSun } from '../../lib/format.js';
 import { getTransatronNodeInfo } from '../../lib/chain-info.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../../lib/trc20.js';
+import { prepareTransaction } from '../../lib/tx-prepare.js';
 import { broadcastTransaction } from '../../lib/broadcast.js';
+import type { MutableTransaction } from '../../types/index.js';
 
 const TOKEN = TOKENS.USDT;
 
@@ -50,11 +52,13 @@ const TOKEN = TOKENS.USDT;
 
     //Step 3.
     // Create and sign TRX Fee transaction to deposit address
-    const feeTx = await tronWeb.transactionBuilder.sendTrx(
+    const rawFeeTx = await tronWeb.transactionBuilder.sendTrx(
       nodeInfo.deposit_address,
       tt.tx_fee_rtrx_instant,
       senderAddress,
     );
+    // Replace reference block with solidified (fork-proof) block
+    const feeTx = await prepareTransaction(tronWeb, rawFeeTx as MutableTransaction);
     const signedFeeTx = await tronWeb.trx.sign(feeTx);
     // Step 4: Build main transaction, sign
     const mainTx = await buildLocalTransaction(
@@ -66,7 +70,9 @@ const TOKEN = TOKENS.USDT;
       feeLimit,
     );
 
-    const signedTx = await tronWeb.trx.sign(mainTx.transaction, config.PRIVATE_KEY);
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedMainTx = await prepareTransaction(tronWeb, mainTx.transaction as MutableTransaction);
+    const signedTx = await tronWeb.trx.sign(unsignedMainTx, config.PRIVATE_KEY);
     // Step 5: Broadcast fee transaction
     const feeResult = await tronWeb.trx.sendRawTransaction(signedFeeTx).catch(console.error);
     if (feeResult && typeof feeResult === 'object' && 'result' in feeResult && feeResult.result) {

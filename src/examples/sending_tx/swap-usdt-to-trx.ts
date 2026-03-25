@@ -23,8 +23,10 @@ import {
   buildLocalSwapTransaction,
   type SwapParams,
 } from '../../lib/swap.js';
+import { prepareTransaction } from '../../lib/tx-prepare.js';
 import { broadcastTransaction } from '../../lib/broadcast.js';
 import { getChainParams } from '../../lib/chain-info.js';
+import type { MutableTransaction } from '../../types/index.js';
 
 const SWAP_AMOUNT = 3_000_000n; // 1 USDT (6 decimals)
 const ROUTER = CONTRACTS.SUN_SWAP_ROUTER;
@@ -104,7 +106,9 @@ const FALLBACK_FEE_LIMIT = 200_000_000; // 200 TRX — fallback if energy estima
         approveFeeLimit,
       );
 
-      const signedApprove = await tronWeb.trx.sign(approveLocalTx.transaction, config.PRIVATE_KEY);
+      // Replace reference block with solidified (fork-proof) block
+      const unsignedApprove = await prepareTransaction(tronWeb, approveLocalTx.transaction as MutableTransaction);
+      const signedApprove = await tronWeb.trx.sign(unsignedApprove, config.PRIVATE_KEY);
       await broadcastTransaction(tronWeb, signedApprove, { waitForConfirmation: true });
       console.log('USDT approved for router.');
     } else {
@@ -150,7 +154,9 @@ const FALLBACK_FEE_LIMIT = 200_000_000; // 200 TRX — fallback if energy estima
     // Build local transaction, sign, broadcast
     const localTx = await buildLocalSwapTransaction(tronWeb, ROUTER, swapParams, senderAddress, feeLimit, 0);
 
-    const signedTx = await tronWeb.trx.sign(localTx.transaction, config.PRIVATE_KEY);
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx = await prepareTransaction(tronWeb, localTx.transaction as MutableTransaction);
+    const signedTx = await tronWeb.trx.sign(unsignedTx, config.PRIVATE_KEY);
     const broadcastResult = await broadcastTransaction(tronWeb, signedTx, { waitForConfirmation: true });
 
     // Print broadcast TransaTron charges and compare with estimation

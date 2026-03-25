@@ -10,8 +10,10 @@ import { formatSun } from '../lib/format.js';
 import { getTransatronNodeInfo } from '../lib/chain-info.js';
 import { getAccountingConfig } from '../lib/transatron-api.js';
 import { estimateFeeLimit, buildLocalTransaction } from '../lib/trc20.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { broadcastTransaction } from '../lib/broadcast.js';
 import { sleep } from '../lib/sleep.js';
+import type { MutableTransaction } from '../types/index.js';
 
 const THRESHOLD_USDT = 300_000_000; // 300 USDT — replenish when balance drops below this
 const TOP_UP_USDT = 15_000_000; //  15 USDT — amount to deposit
@@ -78,7 +80,9 @@ const TOP_UP_USDT = 15_000_000; //  15 USDT — amount to deposit
       feeLimit,
     );
 
-    const signedTx = await tronWeb.trx.sign(localTx.transaction, config.PRIVATE_KEY);
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx = await prepareTransaction(tronWeb, localTx.transaction as MutableTransaction);
+    const signedTx = await tronWeb.trx.sign(unsignedTx, config.PRIVATE_KEY);
     await broadcastTransaction(tronWeb, signedTx, { waitForConfirmation: true });
 
     // Verify TFU credit

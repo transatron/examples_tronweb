@@ -10,8 +10,10 @@ import { TOKENS } from '../config/tokens.js';
 import { createSpenderTronWeb } from '../lib/tronweb-factory.js';
 import { formatSun, hexToUnicode } from '../lib/format.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../lib/trc20.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { broadcastTransaction } from '../lib/broadcast.js';
 import { sleep } from '../lib/sleep.js';
+import type { MutableTransaction } from '../types/index.js';
 
 const TOKEN = TOKENS.USDT;
 const TRANSACTION_INTERVAL_MS = 2000;
@@ -50,7 +52,9 @@ const WITHDRAWALS: { address: string; amount: number }[] = [
 
       // Step 3: Build local, sign, broadcast
       const localTx = await buildLocalTransaction(tronWeb, TOKEN, address, amount, senderAddress, feeLimit);
-      const signedTx = await tronWeb.trx.sign(localTx.transaction, config.PRIVATE_KEY);
+      // Replace reference block with solidified (fork-proof) block
+      const unsignedTx = await prepareTransaction(tronWeb, localTx.transaction as MutableTransaction);
+      const signedTx = await tronWeb.trx.sign(unsignedTx, config.PRIVATE_KEY);
       const broadcastResult = await broadcastTransaction(tronWeb, signedTx, { waitForConfirmation: true });
 
       results.push({

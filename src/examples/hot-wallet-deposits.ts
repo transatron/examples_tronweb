@@ -16,8 +16,10 @@ import { TOKENS } from '../config/tokens.js';
 import { createSpenderTronWeb } from '../lib/tronweb-factory.js';
 import { formatSun, hexToUnicode } from '../lib/format.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../lib/trc20.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { broadcastTransaction } from '../lib/broadcast.js';
 import { sleep } from '../lib/sleep.js';
+import type { MutableTransaction } from '../types/index.js';
 
 const TOKEN = TOKENS.USDT;
 const DEPOSIT_AMOUNT = 10000; // amount the "user" deposits to the merchant
@@ -70,7 +72,9 @@ const DEPOSIT_AMOUNT = 10000; // amount the "user" deposits to the merchant
       hotWalletAddress,
       feeLimit1,
     );
-    const signedTx1 = await tronWebHotWallet.trx.sign(localTx1.transaction, config.PRIVATE_KEY);
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx1 = await prepareTransaction(tronWebHotWallet, localTx1.transaction as MutableTransaction);
+    const signedTx1 = await tronWebHotWallet.trx.sign(unsignedTx1, config.PRIVATE_KEY);
     await broadcastTransaction(tronWebHotWallet, signedTx1, { waitForConfirmation: true });
 
     console.log('User deposit confirmed.');
@@ -118,7 +122,9 @@ const DEPOSIT_AMOUNT = 10000; // amount the "user" deposits to the merchant
       merchantAddress,
       feeLimit2,
     );
-    const signedTx2 = await tronWebMerchant.trx.sign(localTx2.transaction, tempAccount.privateKey);
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx2 = await prepareTransaction(tronWebMerchant, localTx2.transaction as MutableTransaction);
+    const signedTx2 = await tronWebMerchant.trx.sign(unsignedTx2, tempAccount.privateKey);
     await broadcastTransaction(tronWebMerchant, signedTx2, { waitForConfirmation: true });
 
     console.log('Merchant sweep confirmed.');

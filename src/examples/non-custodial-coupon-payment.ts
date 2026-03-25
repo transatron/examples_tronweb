@@ -14,9 +14,10 @@ import { TOKENS } from '../config/tokens.js';
 import { createSpenderTronWeb, createNonSpenderTronWeb } from '../lib/tronweb-factory.js';
 import { formatSun, hexToUnicode } from '../lib/format.js';
 import { estimateFeeLimit, simulateTransaction, buildLocalTransaction } from '../lib/trc20.js';
+import { prepareTransaction } from '../lib/tx-prepare.js';
 import { createCoupon, getCoupon, getAccountingConfig } from '../lib/transatron-api.js';
 import { broadcastTransaction } from '../lib/broadcast.js';
-import type { SignedTransactionWithCoupon } from '../types/index.js';
+import type { MutableTransaction, SignedTransactionWithCoupon } from '../types/index.js';
 
 const TOKEN = TOKENS.USDT;
 const TRANSFER_AMOUNT = 10000;
@@ -100,8 +101,10 @@ const TRANSFER_AMOUNT = 10000;
       feeLimit,
     );
 
+    // Replace reference block with solidified (fork-proof) block
+    const unsignedTx = await prepareTransaction(tronWebNonSpender, localTx.transaction as MutableTransaction);
     const signedTx = (await tronWebNonSpender.trx.sign(
-      localTx.transaction,
+      unsignedTx,
       config.PRIVATE_KEY,
     )) as SignedTransactionWithCoupon;
     signedTx.coupon = couponId;
