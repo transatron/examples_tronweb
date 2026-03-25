@@ -17,7 +17,7 @@ import { sleep } from '../../lib/sleep.js';
 import type { MutableTransaction } from '../../types/index.js';
 
 const TOKEN = TOKENS.USDT;
-const NUMBER_OF_TRANSACTIONS = 5;
+const NUMBER_OF_TRANSACTIONS = 1;
 const TRANSACTION_INTERVAL_MS = 2000;
 
 (async () => {
