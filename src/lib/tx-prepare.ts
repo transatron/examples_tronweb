@@ -39,17 +39,17 @@ export type RefBlockSource = 'solidified' | 'latest';
 export interface PrepareOptions {
   /** Which block to reference. Default: `'solidified'`. */
   refBlock?: RefBlockSource;
-  /** Transaction expiration in minutes from the reference block's timestamp. Default: 1. */
-  expirationMinutes?: number;
+  /** Transaction expiration in seconds from the reference block's timestamp. Default: 60. */
+  expirationSeconds?: number;
 }
 
 /**
  * Replace a transaction's reference block and expiration, then recompute its ID.
  *
  * @example
- * // Delayed transaction: solidified block + 60min expiration
+ * // Delayed transaction: solidified block + 1hr expiration
  * const unsignedTx = await prepareTransaction(tronWeb, localTx.transaction as MutableTransaction, {
- *   expirationMinutes: 60,
+ *   expirationSeconds: 3600,
  * });
  *
  * @example
@@ -67,7 +67,7 @@ export async function prepareTransaction(
   tx: MutableTransaction,
   options: PrepareOptions = {},
 ): Promise<MutableTransaction> {
-  const { refBlock = 'solidified', expirationMinutes = 1 } = options;
+  const { refBlock = 'solidified', expirationSeconds = 60 } = options;
 
   // Deep-copy to avoid mutating the caller's transaction object
   const prepared = JSON.parse(JSON.stringify(tx)) as MutableTransaction;
@@ -90,8 +90,11 @@ export async function prepareTransaction(
   prepared.raw_data.ref_block_hash = block.blockID.slice(16, 32);
 
   // Timestamp and expiration are relative to the reference block.
-  prepared.raw_data.timestamp = blockTimestamp;
-  prepared.raw_data.expiration = blockTimestamp + expirationMinutes * 60 * 1000;
+  // Random jitter (0–999 ms) on both fields ensures unique txIDs even when
+  // multiple transactions from the same wallet reference the same block.
+  prepared.raw_data.timestamp = blockTimestamp - Math.floor(Math.random() * 1000);
+  prepared.raw_data.expiration =
+    blockTimestamp + expirationSeconds * 1000 + Math.floor(Math.random() * 1000);
 
   // Recompute txID — raw_data changed, so the old ID is invalid.
   const updated = await tronWeb.transactionBuilder.newTxID(prepared);

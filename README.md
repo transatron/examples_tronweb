@@ -394,7 +394,7 @@ npm run send-trc20-delayed:prod
 | ---------------- | --------------------------------------------------------------------------------------------------- |
 | **API key**      | Spender                                                                                             |
 | **Fee mode**     | Delayed transaction (batch queue)                                                                   |
-| **Configurable** | `NUMBER_OF_TRANSACTIONS`, `TRANSACTION_INTERVAL_MS`, `EXPIRATION_INCREASE_MIN`                      |
+| **Configurable** | `NUMBER_OF_TRANSACTIONS`, `TRANSACTION_INTERVAL_MS`, `EXPIRATION_INCREASE_SEC`                      |
 | **Flow**         | Loop: build → bump expiration → sign(4 args) → broadcast → after loop: flush → poll until processed |
 
 ### swap-trx-usdt

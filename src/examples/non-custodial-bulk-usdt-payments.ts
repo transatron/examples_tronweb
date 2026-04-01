@@ -21,7 +21,7 @@ import { sleep } from '../lib/sleep.js';
 import type { MutableTransaction } from '../types/index.js';
 
 const TOKEN = TOKENS.USDT;
-const EXPIRATION_INCREASE_MIN = 60; // 1 hour
+const EXPIRATION_INCREASE_SEC = 3600; // 1 hour
 const TRANSACTION_INTERVAL_MS = 2000;
 
 // CSV file in the same directory as this script
@@ -45,7 +45,7 @@ function parseCsv(filePath: string): { address: string; amount: number }[] {
     console.log('=== Non-Custodial — Bulk USDT Payments (Delayed) ===');
     console.log('CSV file:', CSV_FILE);
     console.log('Recipients:', recipients.length);
-    console.log('Expiration bump:', EXPIRATION_INCREASE_MIN, 'min');
+    console.log('Expiration bump:', EXPIRATION_INCREASE_SEC, 'sec');
     console.log('');
 
     for (const r of recipients) {
@@ -89,7 +89,7 @@ function parseCsv(filePath: string): { address: string; amount: number }[] {
       const unsignedTx = await prepareTransaction(
         tronWeb,
         localTx.transaction as MutableTransaction,
-        { expirationMinutes: EXPIRATION_INCREASE_MIN },
+        { expirationSeconds: EXPIRATION_INCREASE_SEC },
       );
 
       // Sign with 4 args (required for delayed transactions)

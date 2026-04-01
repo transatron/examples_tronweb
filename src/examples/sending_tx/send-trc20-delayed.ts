@@ -15,7 +15,7 @@ import { sleep } from '../../lib/sleep.js';
 import type { MutableTransaction } from '../../types/index.js';
 
 const TOKEN = TOKENS.USDT;
-const EXPIRATION_INCREASE_MIN = 60; // 1 hour
+const EXPIRATION_INCREASE_SEC = 3600; // 1 hour
 const NUMBER_OF_TRANSACTIONS = 3;
 const TRANSACTION_INTERVAL_MS = 2000;
 
@@ -27,7 +27,7 @@ const TRANSACTION_INTERVAL_MS = 2000;
     console.log('=== Send TRC20 — Delayed Transaction ===');
     console.log('Sender:', senderAddress);
     console.log('Number of transactions:', NUMBER_OF_TRANSACTIONS);
-    console.log('Expiration increase:', EXPIRATION_INCREASE_MIN, 'min');
+    console.log('Expiration increase:', EXPIRATION_INCREASE_SEC, 'sec');
 
     // Check pending before starting
     const pendingBefore = await getPendingTxs(tronWeb, senderAddress);
@@ -74,7 +74,7 @@ const TRANSACTION_INTERVAL_MS = 2000;
       const unsignedTx = await prepareTransaction(
         tronWeb,
         localTx.transaction as MutableTransaction,
-        { expirationMinutes: EXPIRATION_INCREASE_MIN },
+        { expirationSeconds: EXPIRATION_INCREASE_SEC },
       );
 
       // Sign with 4 args (required for delayed transactions)
