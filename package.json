@@ -26,6 +26,8 @@
   "scripts": {
     "send-trx:stage": "cross-env NODE_ENV=stage tsx src/examples/sending_tx/send-trx.ts",
     "send-trx:prod": "cross-env NODE_ENV=prod tsx src/examples/sending_tx/send-trx.ts",
+    "send-trx-multisig:stage": "cross-env NODE_ENV=stage tsx src/examples/sending_tx/send-trx-multisig.ts",
+    "send-trx-multisig:prod": "cross-env NODE_ENV=prod tsx src/examples/sending_tx/send-trx-multisig.ts",
     "send-trc20-account:stage": "cross-env NODE_ENV=stage tsx src/examples/sending_tx/send-trc20-account-payment.ts",
     "send-trc20-account:prod": "cross-env NODE_ENV=prod tsx src/examples/sending_tx/send-trc20-account-payment.ts",
     "send-trc20-instant-trx:stage": "cross-env NODE_ENV=stage tsx src/examples/sending_tx/send-trc20-instant-trx.ts",

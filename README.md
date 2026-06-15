@@ -24,6 +24,14 @@ TRANSATRON_API_KEY_SPENDER="<spender API key>"
 TARGET_ADDRESS="<recipient wallet address>"
 ```
 
+Optional vars (only needed by specific examples — placeholder names, fill in locally, **never commit real private keys**):
+
+| Variable | Used by | Description |
+| -------- | ------- | ----------- |
+| `MULTISIG_OWNER_ADDRESS` | `send-trx-multisig` | Address of the multisig owner (sender) account |
+| `MULTISIG_SIGNER_KEYS` | `send-trx-multisig` | Comma-separated signer private keys (≥2) for the owner's active permission |
+| `MULTISIG_PERMISSION_ID` | `send-trx-multisig` | Active permission id (default `2`) |
+
 **Spender vs Non-spender keys:** Spender keys are for server-side use — they have company-level privileges (prepaid balance, coupons, accounting). Non-spender keys are safe for client-side and mobile apps — for individual users paying fees per transaction. See [Accessing the Node](https://docs.transatron.io/transatron_node_api/accessing_tron_json_rpc/AccessingTheNode) for details.
 
 ## Running Examples
@@ -321,6 +329,25 @@ npm run send-trx:prod
 | **Fee mode** | Account payment     |
 | **Amount**   | Random < 10,000 SUN |
 
+### send-trx-multisig
+
+Send a native TRX transfer from a **multisig** owner account (an active permission requiring ≥2 signatures). TransaTron supports multisig for `TransferContract`, `TriggerSmartContract`, and `CreateSmartContract`. The node burns a dynamic `multiSignFee` (currently ~1 TRX) for multisig transactions; TransaTron **pre-funds the owner**, so the owner's own TRX balance is unaffected and the `multiSignFee` is folded into the existing `tx_fee_burn_trx` field (there is no separate field). See the [FAQ](https://docs.transatron.io/faq#what-happens-when-i-send-a-multisig-transaction) for details.
+
+The script sets `Permission_id` on the contract, calls `prepareTransaction` (recomputes the txID), collects a signature per key via `multiSign` (asserting ≥2), then broadcasts through TransaTron and prints the `transatron` object (decoded message, `tx_fee_burn_trx`, on-chain txid).
+
+> **Requires a real, configured + funded multisig account to actually run.** The owner must have an active permission whose keys match `MULTISIG_SIGNER_KEYS`. Configure the optional env vars below (placeholder names only — **never commit real private keys**). If they are missing or fewer than 2 signer keys are provided, the script aborts cleanly without broadcasting and without printing any secret.
+
+```bash
+npm run send-trx-multisig:stage
+npm run send-trx-multisig:prod
+```
+
+|                  |                                                                              |
+| ---------------- | ---------------------------------------------------------------------------- |
+| **API key**      | Spender                                                                      |
+| **Fee mode**     | Account payment (TFN/TFU balance) + multisig `multiSignFee`                   |
+| **Configurable** | `MULTISIG_OWNER_ADDRESS`, `MULTISIG_SIGNER_KEYS` (≥2, comma-sep), `MULTISIG_PERMISSION_ID` (default `2`) |
+
 ### send-trc20-account
 
 Send TRC20 using **Account Payment** mode. Fees are deducted from the company's prepaid TFN/TFU balance — the cheapest mode with no extra on-chain transfer overhead. If the balance reaches 0, transactions are bypassed to TRON directly and will burn TRX for fees. Supports sending multiple transactions in a loop. See [Custody Integration](https://docs.transatron.io/integration_guidelines/custody/SendingTransactions) for details.
@@ -534,6 +561,9 @@ src/
     replenish-usdt.ts                 # Automated TFU balance replenisher
     swap_on_sunswap.ts                # USDT↔TRX swap via SunSwap + TransaTron
     sending_tx/         # Transaction sending examples (all fee payment modes)
+      send-trx.ts          # Native TRX transfer (account payment)
+      send-trx-multisig.ts # Native TRX transfer from a multisig owner (≥2 signatures)
+      ...                  # TRC20 account/instant/coupon/delayed + swap examples
     accounting/         # Account management, deposits, coupons, queries
 ```
 
