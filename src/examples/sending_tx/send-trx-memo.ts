@@ -38,6 +38,7 @@ const MEMO = 'TransferEdge memo example';
       rawTx as MutableTransaction,
       MEMO,
       'utf8',
+      { txLocal: true }, // attach locally; do not round-trip the memo through the proxy (matches the proven Tester-RPC path)
     );
 
     // Replace reference block with solidified (fork-proof) block
