@@ -348,6 +348,21 @@ npm run send-trx-multisig:prod
 | **Fee mode**     | Account payment (TFN/TFU balance) + multisig `multiSignFee`                   |
 | **Configurable** | `MULTISIG_OWNER_ADDRESS`, `MULTISIG_SIGNER_KEYS` (≥2, comma-sep), `MULTISIG_PERMISSION_ID` (default `2`) |
 
+### send-trx-memo
+
+Send a native TRX transfer with a **memo** attached (`raw_data.data`, set via `transactionBuilder.addUpdateData()`). On a sponsored transaction, TransferEdge automatically covers TRON's 1 TRX memo fee — no extra funds or steps needed by the sender.
+
+```bash
+npm run send-trx-memo:stage
+npm run send-trx-memo:prod
+```
+
+|              |                     |
+| ------------ | ------------------- |
+| **API key**  | Spender             |
+| **Fee mode** | Account payment     |
+| **Amount**   | Random < 10,000 SUN |
+
 ### send-trc20-account
 
 Send TRC20 using **Account Payment** mode. Fees are deducted from the company's prepaid TFN/TFU balance — the cheapest mode with no extra on-chain transfer overhead. If the balance reaches 0, transactions are bypassed to TRON directly and will burn TRX for fees. Supports sending multiple transactions in a loop. See [Custody Integration](https://docs.transatron.io/integration_guidelines/custody/SendingTransactions) for details.
@@ -362,6 +377,21 @@ npm run send-trc20-account:prod
 | **API key**      | Spender                                                      |
 | **Fee mode**     | Account payment (TFN/TFU balance)                            |
 | **Configurable** | `NUMBER_OF_TRANSACTIONS`, `TRANSACTION_INTERVAL_MS`, `TOKEN` |
+
+### send-trc20-usdt-memo
+
+Send TRC20 (USDT) using **Account Payment** mode with a **memo** attached (`raw_data.data`, set via `transactionBuilder.addUpdateData()`). On a sponsored transaction, TransferEdge automatically covers TRON's 1 TRX memo fee — no extra funds or steps needed by the sender.
+
+```bash
+npm run send-trc20-usdt-memo:stage
+npm run send-trc20-usdt-memo:prod
+```
+
+|                  |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| **API key**      | Spender                                                      |
+| **Fee mode**     | Account payment (TFN/TFU balance)                            |
+| **Configurable** | `NUMBER_OF_TRANSACTIONS`, `TRANSACTION_INTERVAL_MS`, `TOKEN`, `MEMO` |
 
 ### send-trc20-instant-trx
 
@@ -563,6 +593,8 @@ src/
     sending_tx/         # Transaction sending examples (all fee payment modes)
       send-trx.ts          # Native TRX transfer (account payment)
       send-trx-multisig.ts # Native TRX transfer from a multisig owner (≥2 signatures)
+      send-trx-memo.ts      # Native TRX transfer with memo attached (TransferEdge covers memo fee)
+      send-trc20-usdt-memo.ts # USDT transfer (account payment) with memo attached
       ...                  # TRC20 account/instant/coupon/delayed + swap examples
     accounting/         # Account management, deposits, coupons, queries
 ```
